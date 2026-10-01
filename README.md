@@ -13,7 +13,7 @@
 | 檔案 | 說明 |
 |---|---|
 | `video/ISO27001_應用程式安全_動畫課程.mp4` | 1080p 成品影片（含旁白，可直接上課播放） |
-| `presentation/index.html` + `narration.mp3` | 互動版動畫簡報：可暫停、跳段、調速、開關字幕、全螢幕 |
+| `index.html`（根目錄入口）／`presentation/index.html` + `narration.mp3` | 互動版動畫簡報：可暫停、跳段、調速、開關字幕、全螢幕 |
 | `src/content.py` | 腳本與教材內容（改這裡即可改台詞與投影片文字） |
 | `src/player.html` | 簡報播放器樣板（角色、動畫、版面） |
 | `src/build.py` | 產生語音（edge-tts：`zh-TW-YunJheNeural` 男聲／`zh-TW-HsiaoYuNeural` 助教）與時間軸 |

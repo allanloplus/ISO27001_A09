@@ -136,6 +136,11 @@ def build():
         f.write('<!doctype html>\n<html lang="zh-Hant">\n<head>\n<meta charset="utf-8">\n'
                 '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
                 '</head>\n<body>\n' + player + '\n</body>\n</html>\n')
+    # 根目錄入口（GitHub Pages 等可直接開啟），音檔指向 presentation/
+    with open(os.path.join(OUT, "index.html"), encoding="utf-8") as f:
+        root_html = f.read().replace('src="narration.mp3"', 'src="presentation/narration.mp3"')
+    with open(os.path.join(ROOT, "index.html"), "w", encoding="utf-8") as f:
+        f.write(root_html)
     print(f"scenes={len(deck)} lines={sum(len(s['lines']) for s in deck)} duration={t/60:.1f} min")
 
 
