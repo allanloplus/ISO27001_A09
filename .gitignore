@@ -3,3 +3,5 @@ video/frames/
 video/*.part.mp4
 __pycache__/
 node_modules/
+video/node_modules
+video/segments.txt
