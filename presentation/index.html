@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>應用程式安全動畫課</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: 1280x720 固定舞台等比縮放；上方章節列、中段教材、下方左右角色與字幕。單一視覺（深色外框＋淺綠舞台）。 */
+:root{
+  --ground:#0C1F19;      /* 頁面外框 */
+  --ground-2:#14302A;
+  --paper:#F3FAF5;       /* 舞台底色 */
+  --ink:#12332A;         /* 主要文字 */
+  --ink-soft:#4C6B60;
+  --mint:#14E09B;        /* 系統安全 */
+  --green:#0E9A68;       /* 主色 */
+  --deep:#08684A;
+  --leaf:#A7D86B;        /* 網路安全側 */
+  --audit:#2E6BD1;       /* 稽核 */
+  --alert:#DD4B32;       /* 缺失 */
+  --sun:#FFC63D;
+  --on-dark:#E8F5EF;
+  --font-display:"Huninn","Noto Sans TC","WenQuanYi Zen Hei",sans-serif;
+  --font-body:"Noto Sans TC","WenQuanYi Zen Hei","PingFang TC","Microsoft JhengHei",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--ground);color:var(--on-dark);font-family:var(--font-body);margin:0}
+.wrap{max-width:1280px;margin:0 auto;padding-block:16px;padding-inline:16px;display:flex;flex-direction:column;gap:10px}
+.viewport{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;overflow:hidden;border-radius:14px;background:var(--paper);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--font-body)}
+body.render{background:var(--paper)}
+body.render .wrap{padding:0;max-width:none}
+body.render .viewport{border-radius:0;box-shadow:none;width:100vw;height:100vh;aspect-ratio:auto}
+body.render .controls,body.render .startbtn,body.render .hint{display:none!important}
+
+/* ---------- 舞台背景：向右推進的箭形色帶（取自流程圖） ---------- */
+.bg{position:absolute;inset:0;overflow:hidden}
+.bg i{position:absolute;top:0;bottom:0;width:300px;clip-path:polygon(0 0,80% 0,100% 50%,80% 100%,0 100%,20% 50%)}
+.bg i:nth-child(1){left:-60px;background:#E9F7EF}
+.bg i:nth-child(2){left:180px;background:#E3F5EA}
+.bg i:nth-child(3){left:420px;background:#DCF2E4}
+.bg i:nth-child(4){left:660px;background:#DDF1DA}
+.bg i:nth-child(5){left:900px;background:#DCEFCF}
+.bg i:nth-child(6){left:1140px;background:#D6EBC4}
+
+/* ---------- 上方列 ---------- */
+.topbar{position:absolute;left:0;right:0;top:0;height:58px;display:flex;align-items:center;gap:14px;padding:0 28px;z-index:5}
+.chip-ch{font-family:var(--font-display);font-size:20px;background:var(--deep);color:#fff;padding:6px 16px;border-radius:999px;letter-spacing:.04em}
+.brand{margin-left:auto;font-size:15px;color:var(--ink-soft);font-weight:700;letter-spacing:.06em}
+.dots{display:flex;gap:4px}
+.dots b{display:block;width:14px;height:6px;border-radius:3px;background:#C6DCD2}
+.dots b.on{background:var(--green)}
+.dots b.cur{background:var(--sun);width:24px}
+
+/* ---------- 內容區 ---------- */
+.content{position:absolute;left:36px;right:36px;top:66px;height:420px;z-index:3}
+.scene-root{position:absolute;inset:0}
+.wipe{position:absolute;top:-40px;bottom:-40px;left:0;width:1500px;z-index:20;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0,var(--mint) 18%,var(--green) 50%,var(--leaf) 82%,transparent 100%);
+  clip-path:polygon(10% 0,90% 0,100% 50%,90% 100%,10% 100%,20% 50%);transform:translateX(-110%)}
+
+/* ---------- 動畫基礎：全部暫停，由時間軸驅動 currentTime ---------- */
+.fx{animation-play-state:paused!important;animation-fill-mode:both;animation-delay:var(--d,0s);animation-timing-function:cubic-bezier(.2,.8,.25,1)}
+.a-pop{animation-name:pop;animation-duration:.6s}
+.a-rise{animation-name:rise;animation-duration:.55s}
+.a-left{animation-name:slideL;animation-duration:.5s}
+.a-fade{animation-name:fade;animation-duration:.5s}
+.a-stamp{animation-name:stamp;animation-duration:.5s}
+.a-wipe{animation-name:wipe;animation-duration:.95s;animation-timing-function:cubic-bezier(.6,0,.4,1)}
+.a-grow{animation-name:grow;animation-duration:.7s}
+.a-pulse{animation-name:pulse;animation-duration:1.6s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}
+.a-spin{animation-name:spin;animation-duration:14s;animation-iteration-count:infinite;animation-timing-function:linear}
+.a-float{animation-name:float;animation-duration:3.2s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}
+@keyframes pop{0%{opacity:0;transform:scale(.6) translateY(24px)}65%{opacity:1;transform:scale(1.04)}100%{opacity:1;transform:none}}
+@keyframes rise{0%{opacity:0;transform:translateY(26px)}100%{opacity:1;transform:none}}
+@keyframes slideL{0%{opacity:0;transform:translateX(-46px)}100%{opacity:1;transform:none}}
+@keyframes fade{0%{opacity:0}100%{opacity:1}}
+@keyframes stamp{0%{opacity:0;transform:scale(2.6) rotate(-24deg)}60%{opacity:1;transform:scale(.92) rotate(-9deg)}100%{opacity:1;transform:scale(1) rotate(-9deg)}}
+@keyframes wipe{0%{transform:translateX(-110%)}100%{transform:translateX(110%)}}
+@keyframes grow{0%{opacity:0;transform:scaleX(0)}100%{opacity:1;transform:scaleX(1)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+@keyframes talk{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1.05)}}
+@keyframes hop{0%,100%{transform:translateY(0)}35%{transform:translateY(-16px)}65%{transform:translateY(0)}}
+@keyframes wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-16deg)}}
+@keyframes dashin{0%{opacity:0;transform:translateX(360px) rotate(14deg)}55%{opacity:1;transform:translateX(-26px) rotate(-6deg)}100%{opacity:1;transform:none}}
+@keyframes glow{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.08)}}
+
+/* ---------- 角色 ---------- */
+.char{position:absolute;bottom:-6px;width:200px;height:236px;z-index:6}
+.char svg{width:100%;height:100%;overflow:visible}
+#allan{left:2px}
+#arale{right:0}
+.char .body-bob{animation:bob 2.6s ease-in-out infinite}
+#arale .body-bob{animation-duration:1.9s}
+.char .eye{transform-box:fill-box;transform-origin:center;animation:blink 4.2s infinite}
+#arale .eye{animation-duration:3.4s}
+.char .m-open{display:none;transform-box:fill-box;transform-origin:center top}
+.char.talking .m-open{display:inline;animation:talk .26s ease-in-out infinite}
+.char.talking .m-closed{display:none}
+.char .arm{transform-box:view-box;transform-origin:170px 200px}
+.char.talking .arm{animation:wave 1s ease-in-out infinite}
+#arale.talking .body-bob{animation:hop .62s ease-in-out infinite}
+.char .spot{position:absolute;left:30px;right:30px;bottom:-30px;height:70px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,198,61,.75),rgba(255,198,61,0));opacity:0}
+.char.talking .spot{animation:glow 1.2s ease-in-out infinite}
+.char.enter{animation:dashin .9s cubic-bezier(.2,.8,.25,1) both}
+.char *{animation-play-state:paused!important}
+.char.enter{animation-play-state:paused!important}
+
+/* ---------- 字幕 ---------- */
+.sub{position:absolute;left:206px;right:206px;bottom:20px;z-index:7;display:flex;justify-content:center}
+.sub-box{background:rgba(10,40,31,.92);color:#fff;border-radius:16px;padding:12px 20px 14px;display:flex;gap:12px;align-items:flex-start;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:100%}
+.sub-box[hidden]{display:none!important}
+.sub-who{flex:none;font-family:var(--font-display);font-size:17px;padding:3px 10px;border-radius:999px;margin-top:3px;white-space:nowrap}
+.sub-who.A{background:var(--green)}
+.sub-who.R{background:#8B5BD6}
+.sub-text{font-size:23px;line-height:1.5;font-weight:500;letter-spacing:.02em;text-wrap:pretty}
+body.nocc .sub{display:none}
+
+/* ---------- 共用元件 ---------- */
+.h-display{font-family:var(--font-display);color:var(--ink);text-wrap:balance}
+.code{font-family:var(--font-display);font-variant-numeric:tabular-nums}
+.ico{width:1em;height:1em;flex:none}
+
+/* 開場 */
+.t-wrap{position:absolute;left:140px;right:140px;top:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.t-kicker{font-size:20px;font-weight:700;color:var(--deep);letter-spacing:.12em;background:#fff;border:2px solid var(--green);padding:6px 18px;border-radius:999px}
+.t-title{font-family:var(--font-display);font-size:96px;line-height:1.05;color:var(--ink);margin:6px 0 0;letter-spacing:.04em}
+.t-title span{color:var(--green)}
+.t-en{font-size:28px;font-weight:900;letter-spacing:.3em;color:var(--leaf);text-transform:uppercase;-webkit-text-stroke:1px var(--deep)}
+.t-sub{font-size:21px;color:var(--ink-soft);font-weight:500}
+.tri{display:flex;gap:18px;margin-top:12px}
+.tri div{white-space:nowrap;display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:28px;color:#fff;padding:12px 22px;border-radius:16px}
+.tri .k1{background:var(--green)}.tri .k2{background:var(--audit)}.tri .k3{background:var(--alert)}
+.shield{position:absolute;width:150px;height:150px}
+
+/* 地圖 */
+.map{position:absolute;inset:0}
+.m-band{position:absolute;top:0;height:46px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:26px;color:var(--ink)}
+.m-band.l{left:0;width:640px;background:var(--mint);clip-path:polygon(0 0,95% 0,100% 50%,95% 100%,0 100%)}
+.m-band.r{left:610px;width:598px;background:#22C46F;clip-path:polygon(0 0,95% 0,100% 50%,95% 100%,0 100%,5% 50%)}
+.m-top{position:absolute;top:56px;left:0;right:0;display:flex;justify-content:space-around;font-size:19px;font-weight:700;color:var(--ink)}
+.m-top b{color:var(--deep);font-family:var(--font-display);font-size:21px;margin-right:6px}
+.m-axis{position:absolute;top:92px;left:10px;right:10px;height:6px;background:var(--audit);border-radius:3px;transform-origin:center}
+.m-axis:before,.m-axis:after{content:"";position:absolute;top:-8px;border:11px solid transparent}
+.m-axis:before{left:-14px;border-right-color:var(--audit);border-left:0}
+.m-axis:after{right:-14px;border-left-color:var(--audit);border-right:0}
+.m-box{position:absolute;top:126px;width:156px;height:86px;border-radius:14px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--font-display);font-size:24px;line-height:1.2;color:var(--ink);box-shadow:0 4px 0 rgba(0,0,0,.08)}
+.m-arrow{position:absolute;top:160px;width:34px;height:18px;background:var(--mint);clip-path:polygon(0 30%,60% 30%,60% 0,100% 50%,60% 100%,60% 70%,0 70%)}
+.m-ctl{position:absolute;top:224px;width:176px;text-align:center;font-size:18px;font-weight:700;line-height:1.35;color:var(--ink)}
+.m-ctl b{display:block;font-family:var(--font-display);font-size:24px;color:var(--deep)}
+.m-830{position:absolute;top:322px;left:96px;width:560px;height:74px;border-radius:16px;background:#C9E7C4;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:28px;color:var(--ink);transform-origin:left center}
+.m-830 b{color:var(--deep);margin-right:12px}
+.m-up{position:absolute;top:300px;left:656px;width:60px;height:60px}
+.m-right{position:absolute;top:100px;left:1010px;width:190px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.m-right .rt{font-size:18px;font-weight:700;line-height:1.3;color:var(--ink)}
+.m-right .rt b{display:block;font-family:var(--font-display);font-size:24px;color:var(--deep)}
+
+/* 章節 */
+.chap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding-bottom:90px}
+.chap-no{font-family:var(--font-display);font-size:42px;color:#fff;background:var(--alert);padding:6px 26px;border-radius:14px;transform:rotate(-4deg)}
+.chap-title{font-family:var(--font-display);font-size:76px;color:var(--ink)}
+.chap-codes{display:flex;gap:12px}
+.chap-codes span{font-family:var(--font-display);font-size:28px;color:var(--deep);background:#fff;border:3px solid var(--green);border-radius:12px;padding:4px 16px}
+.track{position:absolute;left:150px;right:150px;bottom:36px;height:70px}
+.track .rail{position:absolute;left:0;right:0;top:20px;height:8px;border-radius:4px;background:repeating-linear-gradient(90deg,var(--green) 0 18px,transparent 18px 28px)}
+.track .st{position:absolute;top:6px;width:36px;height:36px;margin-left:-18px;border-radius:50%;background:#fff;border:5px solid #B8D6C8}
+.track .st.done{border-color:var(--green);background:var(--green)}
+.track .st.cur{border-color:var(--sun);background:var(--sun)}
+.track .lb{position:absolute;top:48px;width:180px;margin-left:-90px;text-align:center;font-size:17px;font-weight:700;color:var(--ink-soft)}
+
+/* 控制措施頁 */
+.ctl-head{position:absolute;left:0;right:0;top:0;height:96px;display:flex;align-items:center;gap:20px}
+.ctl-code{font-family:var(--font-display);font-size:58px;color:#fff;background:var(--deep);border-radius:20px;padding:4px 22px 6px;box-shadow:0 6px 0 var(--ink)}
+.ctl-name{font-family:var(--font-display);font-size:46px;line-height:1.1;color:var(--ink)}
+.ctl-en{font-size:17px;color:var(--ink-soft);font-style:italic;margin-top:4px}
+.cards{position:absolute;left:0;right:0;top:112px;bottom:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.slot{position:relative;border:3px dashed #C3DCCF;border-radius:20px;min-width:0}
+.card{position:absolute;inset:-3px;border-radius:20px;background:#fff;border:3px solid var(--k);box-shadow:0 8px 0 var(--k);display:flex;flex-direction:column;overflow:hidden}
+.card.ops{--k:var(--green)}.card.audit{--k:var(--audit)}.card.gaps{--k:var(--alert)}
+.card-h{display:flex;align-items:center;gap:10px;background:var(--k);color:#fff;padding:10px 16px;font-family:var(--font-display);font-size:27px}
+.card-h .ico{width:30px;height:30px}
+.card ul{list-style:none;margin:0;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.card li{display:flex;gap:10px;font-size:19.5px;line-height:1.38;font-weight:500;color:var(--ink)}
+.card li:before{content:"";flex:none;width:10px;height:10px;border-radius:3px;margin-top:10px;background:var(--k);transform:rotate(45deg)}
+.card.gaps li{font-weight:700}
+.card .badge{position:absolute;right:12px;bottom:10px;font-family:var(--font-display);font-size:22px;color:var(--alert);border:3px solid var(--alert);border-radius:10px;padding:2px 10px;transform:rotate(-9deg);background:#fff}
+
+/* 案例 */
+.case-head{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:16px}
+.case-tag{font-family:var(--font-display);font-size:24px;background:var(--sun);color:var(--ink);padding:6px 16px;border-radius:12px;border:3px solid var(--ink)}
+.case-title{font-family:var(--font-display);font-size:44px;color:var(--ink)}
+.panels{position:absolute;left:0;right:0;top:74px;height:226px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}
+.panel{position:relative;background:#fff;border:4px solid var(--ink);border-radius:8px;box-shadow:8px 8px 0 var(--ink);display:flex;flex-direction:column;align-items:center;padding:14px 16px;gap:8px;text-align:center;min-width:0}
+.panel .no{position:absolute;left:-14px;top:-16px;width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--font-display);font-size:22px;display:flex;align-items:center;justify-content:center}
+.panel .pic{width:92px;height:92px}
+.panel .ph{font-family:var(--font-display);font-size:26px;color:var(--alert)}
+.panel .pc{font-size:19px;line-height:1.4;font-weight:500;color:var(--ink)}
+.p-arrow{position:absolute;top:170px;width:40px;height:34px;color:var(--ink)}
+.lesson{position:absolute;left:0;right:0;top:322px;min-height:84px;background:var(--deep);color:#fff;border-radius:18px;display:flex;align-items:center;gap:16px;padding:12px 20px;transform-origin:left center}
+.lesson .ico{width:46px;height:46px;color:var(--sun)}
+.lesson .lt{font-size:23px;font-weight:700;line-height:1.4;flex:1;min-width:0}
+.lesson .lt small{display:block;font-family:var(--font-display);font-size:18px;color:var(--sun);font-weight:400}
+.codes{display:flex;gap:8px;flex:none}
+.codes span{font-family:var(--font-display);font-size:20px;background:#fff;color:var(--deep);border-radius:8px;padding:2px 10px}
+
+/* 撇步 */
+.tips-title,.quiz-title{position:absolute;left:0;top:0;font-family:var(--font-display);font-size:46px;color:var(--ink)}
+.tips{position:absolute;left:150px;right:150px;top:70px;display:flex;flex-direction:column;gap:10px}
+.tip{display:flex;align-items:center;gap:18px;background:#fff;border-radius:16px;padding:6px 18px;border:3px solid #CFE6DA}
+.tip .n{font-family:var(--font-display);font-size:30px;color:#fff;background:var(--green);width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.tip .c{font-family:var(--font-display);font-size:24px;color:var(--audit);border:3px solid var(--audit);border-radius:10px;padding:0 10px;flex:none}
+.tip .x{font-size:25px;font-weight:700;color:var(--ink)}
+.tip .ok{margin-left:auto;width:38px;height:38px;color:var(--green)}
+.tip .ok .ico{width:100%;height:100%}
+
+/* 測驗 */
+.quiz{position:absolute;left:30px;right:30px;top:70px;display:flex;flex-direction:column;gap:14px}
+.qrow{position:relative;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:stretch}
+.q{background:#F1E9FF;border:3px solid #8B5BD6;border-radius:16px;padding:12px 18px;font-size:22px;font-weight:700;line-height:1.4;color:var(--ink);display:flex;gap:12px;align-items:center}
+.q b{font-family:var(--font-display);font-size:28px;color:#8B5BD6;flex:none}
+.a{position:relative;background:#fff;border:3px solid var(--green);border-radius:16px;padding:12px 18px;font-size:22px;font-weight:700;line-height:1.4;color:var(--deep);display:flex;align-items:center;gap:10px}
+.a .ico{width:34px;height:34px;color:var(--green)}
+.score{position:absolute;right:300px;top:300px;font-family:var(--font-display);font-size:44px;color:var(--alert);border:5px solid var(--alert);border-radius:50%;width:120px;height:120px;display:flex;align-items:center;justify-content:center;background:#fff}
+
+/* 結語 */
+.out{position:absolute;inset:0;display:flex;align-items:center;gap:40px;padding:0 150px 20px}
+.out-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+.out-t .big{font-family:var(--font-display);font-size:62px;line-height:1.2;color:var(--ink)}
+.out-t .big span{color:var(--green)}
+.out-t .sm{font-size:24px;font-weight:700;color:var(--ink-soft)}
+.pdca{width:280px;height:280px;flex:none}
+.thanks{font-family:var(--font-display);font-size:34px;color:#fff;background:var(--alert);padding:6px 22px;border-radius:14px;align-self:flex-start}
+
+/* ---------- 控制列 ---------- */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--ground-2);border-radius:12px;padding:10px 12px}
+.controls button,.controls select{font:inherit;font-size:14px;color:var(--on-dark);background:#1F443A;border:1px solid #2F5C4F;border-radius:8px;padding:7px 12px;cursor:pointer}
+.controls button:hover,.controls select:hover{background:#285447}
+.controls button:focus-visible,.controls select:focus-visible,.seek:focus-visible,.startbtn:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.controls .play{background:var(--green);border-color:var(--green);font-weight:700;min-width:84px}
+.seek{position:relative;flex:1 1 220px;min-width:0;height:28px;cursor:pointer;touch-action:none}
+.seek .track2{position:absolute;left:0;right:0;top:11px;height:6px;border-radius:3px;background:#2B4F45}
+.seek .fill{position:absolute;left:0;top:11px;height:6px;border-radius:3px;background:var(--mint);width:0}
+.seek .tick{position:absolute;top:7px;width:2px;height:14px;background:#7FA597}
+.time{font-variant-numeric:tabular-nums;font-size:13px;color:#A9C9BC;white-space:nowrap}
+.controls select{max-width:100%}
+.startbtn{position:absolute;inset:0;margin:auto;width:220px;height:76px;z-index:30;border:0;border-radius:40px;background:var(--green);color:#fff;font-family:var(--font-display);font-size:28px;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;gap:10px}
+.startbtn:hover{background:var(--deep)}
+.hint{font-size:12px;color:#8FB3A5;text-align:center}
+@media (prefers-reduced-motion: reduce){.wipe{display:none}}
+</style>
+
+<div class="wrap">
+  <div class="viewport" id="viewport">
+    <div class="stage" id="stage">
+      <div class="bg"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="topbar"><span class="chip-ch" id="chapter">開場</span><span class="brand">ISO/IEC 27001:2022 ‧ 應用程式安全</span><span class="dots" id="dots"></span></div>
+      <div class="content" id="content"></div>
+      <div class="char" id="allan"><div class="spot fx" data-ref="g"></div></div>
+      <div class="char" id="arale"><div class="spot fx" data-ref="g"></div></div>
+      <div class="sub"><div class="sub-box fx a-rise" id="subbox" hidden><span class="sub-who" id="subwho"></span><span class="sub-text" id="subtext"></span></div></div>
+      <div class="wipe fx a-wipe" id="wipe" data-ref="scene"></div>
+    </div>
+    <button class="startbtn" id="start" type="button" aria-label="開始播放">
+      <svg class="ico" viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>開始上課
+    </button>
+  </div>
+  <div class="controls" id="controls">
+    <button class="play" id="play" type="button">播放</button>
+    <button id="prev" type="button" aria-label="上一段">上一段</button>
+    <button id="next" type="button" aria-label="下一段">下一段</button>
+    <div class="seek" id="seek" role="slider" tabindex="0" aria-label="播放進度" aria-valuemin="0"><div class="track2"></div><div class="fill" id="fill"></div></div>
+    <span class="time" id="time">0:00 / 0:00</span>
+    <select id="jump" aria-label="跳到段落"></select>
+    <button id="rate" type="button" aria-label="播放速度">1×</button>
+    <button id="cc" type="button" aria-pressed="true">字幕</button>
+    <button id="fs" type="button">全螢幕</button>
+  </div>
+  <div class="hint">快捷鍵：空白鍵 播放／暫停 ‧ ← → 切換段落 ‧ F 全螢幕</div>
+  <audio id="audio" src="narration.mp3" preload="auto"></audio>
+</div>
+
+<script>
+window.DECK = {"title": "ISO 27001:2022 應用程式安全", "duration": 920.456, "scenes": [{"id": "open", "kind": "title", "chapter": "開場", "title": "應用程式安全", "en": "Application Security", "subtitle": "ISO/IEC 27001:2022 附錄A｜控制屬性：運作能力", "start": 0.0, "end": 47.856, "lines": [{"who": "A", "text": "哈囉大家好！我是 Allan Lo 講師，平常做 ISMS 跟 PIMS 輔導，也在驗證公司擔任稽核員。", "reveal": null, "start": 0.7, "end": 8.62}, {"who": "R", "text": "嗯掐～！我是助教阿拉蕾！聽說今天要上資安課，我就咻～的一聲跑過來了！", "reveal": "sub", "start": 9.0, "end": 18.48}, {"who": "A", "text": "歡迎阿拉蕾！今天我們用三個面向，來看 ISO 27001 的應用程式安全。", "reveal": "tri", "start": 18.86, "end": 26.132}, {"who": "A", "text": "第一是 ISMS 作業重點，第二是稽核查核重點，第三是最常見的缺失。", "reveal": null, "start": 26.512, "end": 32.056}, {"who": "R", "text": "那有沒有真實案例？阿拉蕾最喜歡聽故事了！", "reveal": null, "start": 32.436, "end": 38.316}, {"who": "A", "text": "當然有！我會穿插輔導跟稽核現場遇到的管理案例，保證大家聽了會心一笑，然後冒冷汗。", "reveal": null, "start": 38.696, "end": 46.856}]}, {"id": "map", "kind": "map", "chapter": "全景地圖", "start": 47.856, "end": 124.956, "lines": [{"who": "A", "text": "先看這張地圖。ISO 27002 的每個控制措施都有屬性標籤，在運作能力這個屬性裡，有一類叫做應用程式安全。", "reveal": null, "start": 48.556, "end": 58.564}, {"who": "A", "text": "把這些控制措施照著系統開發的流程排起來：需求、架構設計、程式編寫、測試驗收，一路到發行部署上線維護。", "reveal": "flow", "start": 58.944, "end": 68.496}, {"who": "A", "text": "對應的控制措施分別是 8.26、8.27、8.28、8.29，上線維護則是 8.32 變更管理。", "reveal": "ctrl", "start": 68.876, "end": 77.372}, {"who": "R", "text": "那下面那條長長的 8.30 是什麼？好像一條大香腸！", "reveal": null, "start": 77.752, "end": 84.52}, {"who": "A", "text": "哈哈，那是委外開發。委外可能從需求一路包到測試，所以它橫跨好幾個階段。", "reveal": "o830", "start": 84.9, "end": 92.244}, {"who": "A", "text": "最上面這條軸線：5.37 運作程序、8.25 安全開發生命週期、8.31 環境區隔、8.32 變更管理，是貫穿全程的管理基礎。", "reveal": "top", "start": 92.624, "end": 103.4}, {"who": "A", "text": "最右邊靠網路安全這一側，還有 8.7 防範惡意軟體、8.18 特權公用程式，以及 8.34 稽核測試期間的保護。", "reveal": "right", "start": 103.78, "end": 112.804}, {"who": "R", "text": "哇～總共十二個控制措施！阿拉蕾的腦袋要冒煙了啦～", "reveal": null, "start": 113.184, "end": 119.832}, {"who": "A", "text": "別擔心，我們分四站，一個一個來。", "reveal": null, "start": 120.212, "end": 123.956}]}, {"id": "ch1", "kind": "chapter", "chapter": "第一站", "no": "第一站", "title": "貫穿全程的管理基礎", "codes": ["5.37", "8.25"], "start": 124.956, "end": 132.32, "lines": [{"who": "R", "text": "第一站！貫穿全程的管理基礎，出發囉～咻～！", "reveal": null, "start": 125.656, "end": 131.32}]}, {"id": "c537", "kind": "control", "chapter": "第一站｜管理基礎", "code": "5.37", "name": "書面紀錄之運作程序", "en": "Documented operating procedures", "ops": ["開關機、備份還原、批次排程皆有 SOP", "異常處理與日誌檢查步驟明確", "文件有版本管控並經核准", "需要的人員可即時取得"], "audit": ["抽一份 SOP，請值班人員現場演示", "比對 SOP 修訂日期與系統異動", "新系統上線是否同步交付操作手冊"], "gaps": ["SOP 只存在資深工程師腦袋裡", "文件仍寫已退役的舊主機", "多年未改版，寫的跟做的不一樣"], "start": 132.32, "end": 176.364, "lines": [{"who": "A", "text": "第一個，5.37 書面紀錄之運作程序。白話講，就是系統怎麼操作，要寫下來。", "reveal": "ops", "start": 133.02, "end": 141.18}, {"who": "A", "text": "開關機、備份還原、批次排程、異常處理，都要有 SOP，而且要版本管控、經過核准，需要的人拿得到。", "reveal": null, "start": 141.56, "end": 150.584}, {"who": "A", "text": "稽核時，我會抽一份 SOP，請值班同仁現場操作一次，看看寫的跟做的是不是一樣。", "reveal": "audit", "start": 150.964, "end": 157.612}, {"who": "R", "text": "阿拉蕾知道！SOP 只存在資深工程師的腦袋裡，對不對？", "reveal": "gaps", "start": 157.992, "end": 164.496}, {"who": "A", "text": "答對！這是最常見的缺失，人一離職，系統就沒人會開機了。還有文件寫的是早就退役的舊主機，也很常見。", "reveal": null, "start": 164.876, "end": 175.364}]}, {"id": "c825", "kind": "control", "chapter": "第一站｜管理基礎", "code": "8.25", "name": "安全開發生命週期", "en": "Secure development life cycle", "ops": ["訂定 SSDLC 開發規範", "各階段設安全檢查關卡（Gate）", "開發人員安全程式設計訓練", "版控與原始碼存取控制"], "audit": ["抽今年上線專案，從需求追到上線", "檢視各 Gate 的審查與簽核紀錄", "查開發人員訓練紀錄"], "gaps": ["程序書很漂亮，專案沒照做", "改敏捷開發後文件全部消失", "小改版一律跳過安全流程"], "start": 176.364, "end": 227.076, "lines": [{"who": "A", "text": "第二個，8.25 安全開發生命週期，也就是 SSDLC。重點是把安全活動，嵌進開發的每一個階段。", "reveal": "ops", "start": 177.064, "end": 186.52}, {"who": "A", "text": "要訂開發規範，在需求、設計、編碼、測試、上線各設安全關卡，開發人員也要受過安全程式設計訓練。", "reveal": null, "start": 186.9, "end": 196.26}, {"who": "A", "text": "查核時，我最喜歡抽一個今年剛上線的專案，從需求一路追到上線，看每一關有沒有留下紀錄。", "reveal": "audit", "start": 196.64, "end": 204.224}, {"who": "R", "text": "像偵探一樣！叮咚～證據在這裡！", "reveal": null, "start": 204.604, "end": 209.524}, {"who": "A", "text": "沒錯。常見缺失是程序書寫得很漂亮，專案卻沒照做；或是改成敏捷開發之後，文件全部消失。", "reveal": "gaps", "start": 209.904, "end": 218.808}, {"who": "A", "text": "還有只有大專案才走流程，小改版通通跳過，偏偏出事的，常常就是小改版。", "reveal": null, "start": 219.188, "end": 226.076}]}, {"id": "ch2", "kind": "chapter", "chapter": "第二站", "no": "第二站", "title": "開發流程四部曲", "codes": ["8.26", "8.27", "8.28", "8.29"], "start": 227.076, "end": 236.024, "lines": [{"who": "R", "text": "第二站！開發流程四部曲：需求、設計、寫程式、測試！", "reveal": null, "start": 227.776, "end": 235.024}]}, {"id": "c826", "kind": "control", "chapter": "第二站｜需求", "code": "8.26", "name": "應用系統安全要求事項", "en": "Application security requirements", "ops": ["需求階段即識別安全需求", "鑑別、存取控制、輸入驗證、加密、日誌", "納入個資保護與法規要求", "線上交易確保完整性與不可否認"], "audit": ["需求規格書是否有安全需求章節", "是否依資料分級訂定需求", "需求是否經確認簽核"], "gaps": ["一句「依本公司資安規範辦理」帶過", "個資欄位沒有遮罩需求", "只寫功能需求，沒有安全需求"], "start": 236.024, "end": 288.176, "lines": [{"who": "A", "text": "進入開發流程，第一步是需求，8.26 應用系統安全要求事項。", "reveal": "ops", "start": 236.724, "end": 242.46}, {"who": "A", "text": "需求階段就要講清楚：身分鑑別、存取控制、輸入驗證、加密、日誌，還有個資保護跟法規要求。", "reveal": null, "start": 242.84, "end": 252.152}, {"who": "A", "text": "如果是線上交易，還要考慮交易的完整性、防竄改，以及不可否認性。", "reveal": null, "start": 252.532, "end": 258.772}, {"who": "A", "text": "稽核時看需求規格書：有沒有安全需求章節？有沒有依資料分級？需求有沒有確認簽核？", "reveal": "audit", "start": 259.152, "end": 268.344}, {"who": "R", "text": "如果需求書只寫一句：依本公司資安規範辦理，這樣可以嗎？", "reveal": "gaps", "start": 268.724, "end": 275.684}, {"who": "A", "text": "這就是經典缺失！一句話帶過，等於什麼都沒寫。還有個資欄位沒有遮罩需求，上線後畫面直接秀出完整身分證字號。", "reveal": null, "start": 276.064, "end": 287.176}]}, {"id": "c827", "kind": "control", "chapter": "第二站｜架構設計", "code": "8.27", "name": "安全系統架構及工程原則", "en": "Secure system architecture and engineering principles", "ops": ["訂定安全工程原則並定期檢視", "縱深防禦、最小權限、零信任", "預設安全、失效安全", "設計審查與威脅建模"], "audit": ["架構圖是否標示網段、安全區域、資料流", "設計審查紀錄", "原則是否也要求委外廠商遵循"], "gaps": ["架構圖五年沒更新", "資料庫直接放在 DMZ", "原則文件抄來的，從沒用過"], "start": 288.176, "end": 338.12, "lines": [{"who": "A", "text": "第二步，架構分析設計，8.27 安全系統架構及工程原則。", "reveal": "ops", "start": 288.876, "end": 294.564}, {"who": "A", "text": "組織要訂安全工程原則，像縱深防禦、最小權限、零信任、預設安全、失效安全，而且要真的用在設計審查。", "reveal": null, "start": 294.944, "end": 304.64}, {"who": "A", "text": "稽核時我會請對方拿出系統架構圖，看有沒有標示網段、安全區域跟資料流，再看設計審查紀錄。", "reveal": "audit", "start": 305.02, "end": 312.868}, {"who": "R", "text": "架構圖阿拉蕾也會畫！畫一坨便便可以嗎？嘿嘿！", "reveal": null, "start": 313.248, "end": 320.64}, {"who": "A", "text": "哈哈，不行喔。不過現場常看到的架構圖，五年沒更新，跟實際環境完全對不起來，也差不多了。", "reveal": "gaps", "start": 321.02, "end": 329.732}, {"who": "A", "text": "更嚴重的是資料庫直接放在 DMZ，或是工程原則文件是抄來的，從來沒用在任何一次審查。", "reveal": null, "start": 330.112, "end": 337.12}]}, {"id": "c828", "kind": "control", "chapter": "第二站｜程式編寫", "code": "8.28", "name": "安全程式設計", "en": "Secure coding", "ops": ["安全編碼規範（參考 OWASP Top 10）", "輸入驗證、參數化查詢、錯誤處理", "禁止將密碼寫死在程式中", "源碼檢測、Code Review、SCA／SBOM"], "audit": ["源碼檢測報告高風險是否修補", "標為誤判者是否有說明", "開源套件清單與已知漏洞追蹤"], "gaps": ["帳密寫在設定檔，還上傳到 Git", "使用有已知漏洞的套件（如 Log4j）", "高風險全部標成「誤判」"], "start": 338.12, "end": 385.472, "lines": [{"who": "A", "text": "第三步，程式編寫，8.28 安全程式設計。", "reveal": "ops", "start": 338.82, "end": 343.428}, {"who": "A", "text": "要有安全編碼規範，參考 OWASP Top 10，像輸入驗證、參數化查詢、錯誤處理，絕對不要把密碼寫死在程式裡。", "reveal": null, "start": 343.808, "end": 352.88}, {"who": "A", "text": "再搭配源碼檢測、程式碼審查，還有開源套件的管理，也就是 SCA 跟 SBOM。", "reveal": null, "start": 353.26, "end": 359.98}, {"who": "A", "text": "查核時，我會看源碼檢測報告：高風險有沒有修？標成誤判的，有沒有說明理由？", "reveal": "audit", "start": 360.36, "end": 368.256}, {"who": "R", "text": "Log4j！阿拉蕾聽過！那個很恐怖的漏洞！", "reveal": "gaps", "start": 368.636, "end": 374.852}, {"who": "A", "text": "對！常見缺失就是用了有已知漏洞的套件卻不知道，帳號密碼寫在設定檔還上傳到 Git，高風險全標成誤判。", "reveal": null, "start": 375.232, "end": 384.472}]}, {"id": "c829", "kind": "control", "chapter": "第二站｜測試驗收", "code": "8.29", "name": "開發及驗收中之安全測試", "en": "Security testing in development and acceptance", "ops": ["測試計畫納入安全測試", "弱點掃描、滲透測試", "驗收標準列入安全要求", "中高風險修補後複測"], "audit": ["弱掃報告日期 vs 上線日期", "中高風險是否複測通過", "測試版本是否與正式版本一致"], "gaps": ["先上線、後補掃", "修補後沒有複測", "報告對應的是舊版本"], "start": 385.472, "end": 433.952, "lines": [{"who": "A", "text": "第四步，測試與驗收，8.29 開發及驗收中之安全測試。", "reveal": "ops", "start": 386.172, "end": 391.428}, {"who": "A", "text": "測試計畫要包含安全測試，像弱點掃描、滲透測試，驗收標準也要把安全列進去。", "reveal": null, "start": 391.808, "end": 399.032}, {"who": "A", "text": "稽核小撇步：把弱掃報告的日期跟上線日期擺在一起看。報告比上線還晚，就是先上線、後補掃。", "reveal": "audit", "start": 399.412, "end": 408.604}, {"who": "A", "text": "另外，中高風險修補之後有沒有複測？測的跟正式環境是不是同一個版本？", "reveal": null, "start": 408.984, "end": 416.448}, {"who": "R", "text": "先上線後補掃，就像阿拉蕾先吃完便當，才說要去洗手！", "reveal": "gaps", "start": 416.828, "end": 423.476}, {"who": "A", "text": "形容得太好了！這就是最常見的缺失。另外就是沒有複測，或是測試報告對應的是舊版本。", "reveal": null, "start": 423.856, "end": 432.952}]}, {"id": "case1", "kind": "case", "chapter": "管理案例 1", "tag": "管理案例 1", "title": "趕檔期跳過檢測的電商", "codes": ["8.26", "8.28", "8.29"], "panels": [{"icon": "cal", "head": "趕雙十一", "cap": "PM：源碼檢測、弱掃先跳過，上線再補！"}, {"icon": "bug", "head": "SQL Injection", "cap": "會員查詢頁被注入，資料庫遭拖庫"}, {"icon": "leak", "head": "十萬筆個資外洩", "cap": "依個資法通報、通知當事人、遭主管機關裁罰"}], "lesson": "安全測試列為上線必要條件；例外須高階主管書面核准並承擔風險", "start": 433.952, "end": 471.948, "lines": [{"who": "A", "text": "來講一個管理案例。某電商為了趕雙十一檔期，PM 說：源碼檢測跟弱掃先跳過，上線再補。", "reveal": "p1", "start": 434.652, "end": 443.532}, {"who": "A", "text": "結果會員查詢頁有 SQL Injection，被駭客整個拖庫。", "reveal": "p2", "start": 443.912, "end": 448.4}, {"who": "R", "text": "哇～那後來怎麼辦？", "reveal": null, "start": 448.78, "end": 451.66}, {"who": "A", "text": "十萬筆會員個資外洩，要依個資法通報、通知當事人，還被主管機關裁罰，商譽損失更是難以估計。", "reveal": "p3", "start": 452.04, "end": 460.368}, {"who": "A", "text": "管理改善：把安全測試列為上線必要條件，沒有報告就不能上線。真要例外，由高階主管書面核准並承擔風險。", "reveal": "lesson", "start": 460.748, "end": 470.948}]}, {"id": "ch3", "kind": "chapter", "chapter": "第三站", "no": "第三站", "title": "委外開發", "codes": ["8.30"], "start": 471.948, "end": 479.192, "lines": [{"who": "R", "text": "第三站！委外開發，那條大香腸來囉～", "reveal": null, "start": 472.648, "end": 478.192}]}, {"id": "c830", "kind": "control", "chapter": "第三站｜委外開發", "code": "8.30", "name": "委外開發", "en": "Outsourced development", "ops": ["合約明訂資安要求與保密", "智財與原始碼交付、第三方元件授權", "漏洞修補保固與稽核權", "過程監督並依安全要求驗收"], "audit": ["合約或 RFP 的資安條款", "廠商人員保密切結", "廠商遠端連線的申請與管控", "廠商交付之檢測報告"], "gaps": ["合約沒有任何資安條款", "廠商帳號常開，直連正式環境", "原始碼未交付，廠商倒了沒人能維護"], "start": 479.192, "end": 526.956, "lines": [{"who": "A", "text": "接著是橫跨全場的 8.30 委外開發。很多系統都是外包的，但是責任，可沒有外包出去喔。", "reveal": "ops", "start": 479.892, "end": 488.172}, {"who": "A", "text": "合約要寫清楚：保密、智財與原始碼交付、安全測試、漏洞修補保固、第三方元件授權，還有稽核權。過程要監督，最後依安全要求驗收。", "reveal": null, "start": 488.552, "end": 501.368}, {"who": "A", "text": "稽核時我會調合約或需求建議書看資安條款，再看廠商人員的保密切結，還有遠端連線怎麼管控。", "reveal": "audit", "start": 501.748, "end": 509.356}, {"who": "R", "text": "廠商叔叔是不是隨時都可以自己連進來呀？", "reveal": "gaps", "start": 509.736, "end": 515.184}, {"who": "A", "text": "這就是常見缺失！廠商帳號常開、直連正式環境；合約沒有資安條款；原始碼沒交付，廠商倒了就沒人能維護。", "reveal": null, "start": 515.564, "end": 525.956}]}, {"id": "case2", "kind": "case", "chapter": "管理案例 2", "tag": "管理案例 2", "title": "廠商帶走的正式資料", "codes": ["8.30", "8.31", "8.33"], "panels": [{"icon": "db", "head": "為了重現錯誤", "cap": "廠商把正式資料庫備份帶回自家測試環境"}, {"icon": "laptop", "head": "筆電遺失", "cap": "工程師筆電在高鐵上遺失，內含數萬筆病歷"}, {"icon": "gavel", "head": "責任在委託方", "cap": "對外，醫院仍須負起監督與通報責任"}], "lesson": "合約禁止攜出正式資料；測試使用去識別化資料；定期稽核廠商", "start": 526.956, "end": 561.16, "lines": [{"who": "A", "text": "再一個案例。某醫療院所的委外廠商，為了重現錯誤，把正式資料庫備份帶回自家公司的測試環境。", "reveal": "p1", "start": 527.656, "end": 536.608}, {"who": "A", "text": "結果工程師的筆電在高鐵上遺失，裡面有好幾萬筆病歷資料。", "reveal": "p2", "start": 536.988, "end": 542.196}, {"who": "R", "text": "咦～可是弄丟的是廠商呀？", "reveal": null, "start": 542.576, "end": 546.248}, {"who": "A", "text": "對外，責任還是在醫院！委託方要負監督責任。", "reveal": "p3", "start": 546.628, "end": 552.316}, {"who": "A", "text": "改善做法：合約明訂不得攜出正式資料，測試一律使用去識別化資料，並且定期稽核廠商。", "reveal": "lesson", "start": 552.696, "end": 560.16}]}, {"id": "ch4", "kind": "chapter", "chapter": "第四站", "no": "第四站", "title": "上線維運與系統防護", "codes": ["8.31", "8.32", "8.7", "8.18", "8.34"], "start": 561.16, "end": 569.532, "lines": [{"who": "R", "text": "第四站！上線維運跟系統防護，大魔王要出現了！", "reveal": null, "start": 561.86, "end": 568.532}]}, {"id": "c831", "kind": "control", "chapter": "第四站｜環境區隔", "code": "8.31", "name": "開發、測試與運作環境之區隔", "en": "Separation of development, test and production environments", "ops": ["三環境以網段、主機、帳號區隔", "開發人員原則上無正式環境權限", "正式資料不直接用於測試（呼應 8.33）", "正式機不留編譯器與開發工具"], "audit": ["正式主機帳號清單有無開發人員", "測試資料庫的資料來源", "正式機上安裝的軟體清單"], "gaps": ["開發與正式同一台主機", "工程師直接在正式機改程式", "測試環境用正式資料備份還原"], "start": 569.532, "end": 615.396, "lines": [{"who": "A", "text": "下一個，8.31 開發、測試與運作環境之區隔。", "reveal": "ops", "start": 570.232, "end": 575.176}, {"who": "A", "text": "三個環境要用網段、主機、帳號權限區隔，開發人員原則上不該有正式環境的權限。", "reveal": null, "start": 575.556, "end": 582.924}, {"who": "A", "text": "正式資料也不該直接拿來測試，真的要用，必須去識別化並經過核准，這也呼應 8.33 測試資訊。", "reveal": null, "start": 583.304, "end": 591.416}, {"who": "A", "text": "查核時，我會比對正式主機的帳號清單，看有沒有開發人員；也會問：測試資料庫的資料是從哪裡來的？", "reveal": "audit", "start": 591.796, "end": 600.1}, {"who": "R", "text": "如果開發跟正式，是同一台電腦呢？", "reveal": "gaps", "start": 600.48, "end": 604.704}, {"who": "A", "text": "那就是缺失啦！還有工程師直接在正式機上改程式，或是正式機上裝了編譯器和開發工具，都很常見。", "reveal": null, "start": 605.084, "end": 614.396}]}, {"id": "c832", "kind": "control", "chapter": "第四站｜變更管理", "code": "8.32", "name": "變更管理", "en": "Change management", "ops": ["申請 → 影響評估 → 核准 → 測試", "實施 → 回復計畫 → 通知 → 文件更新", "緊急變更事後補核准、補紀錄", "申請、核准、實施職務分離"], "audit": ["反向抽樣：由部署／版控紀錄回查變更單", "核准者與實施者是否不同人", "緊急變更所占比例"], "gaps": ["變更單是上線後才補的", "申請、核准、上線都是同一人", "緊急變更過半、沒有回復計畫"], "start": 615.396, "end": 660.28, "lines": [{"who": "A", "text": "再來是大魔王，8.32 變更管理。", "reveal": "ops", "start": 616.096, "end": 619.864}, {"who": "A", "text": "變更要走完整流程：申請、影響評估、核准、測試、實施、回復計畫、通知相關人員，最後更新文件。緊急變更可以先做，但事後一定要補核准。", "reveal": null, "start": 620.244, "end": 634.26}, {"who": "A", "text": "稽核祕技：反向抽樣！不要只看對方給的變更單，要從正式環境的部署紀錄或版控紀錄往回抽，看每次異動有沒有對應的變更單。", "reveal": "audit", "start": 634.64, "end": 645.248}, {"who": "R", "text": "哇～反過來抓！好厲害喔！", "reveal": null, "start": 645.628, "end": 650.092}, {"who": "A", "text": "常見缺失：變更單上線後才補、申請核准上線都是同一個人、緊急變更超過一半，還有完全沒有回復計畫。", "reveal": "gaps", "start": 650.472, "end": 659.28}]}, {"id": "case3", "kind": "case", "chapter": "管理案例 3", "tag": "管理案例 3", "title": "星期五晚上的「小改一下」", "codes": ["8.32", "8.31", "5.37"], "panels": [{"icon": "moon", "head": "週五晚上 9 點", "cap": "工程師：只是改一個參數，直接在正式 ERP 上改"}, {"icon": "down", "head": "訂單系統停擺", "cap": "整個週末無法接單，沒有回復計畫"}, {"icon": "tools", "head": "翻遍備份才救回", "cap": "損失兩天營收，客戶抱怨不斷"}], "lesson": "正式環境異動一律開變更單；申請、核准、實施職務分離；每次變更附回復步驟", "start": 660.28, "end": 693.38, "lines": [{"who": "A", "text": "說個血淋淋的故事。某製造業的工程師，星期五晚上覺得只是改一個參數，就直接在正式 ERP 上改了。", "reveal": "p1", "start": 660.98, "end": 670.004}, {"who": "A", "text": "結果整個週末訂單系統停擺，偏偏又沒有回復計畫。", "reveal": "p2", "start": 670.384, "end": 674.944}, {"who": "R", "text": "阿拉蕾的週末也一起停擺了啦～", "reveal": null, "start": 675.324, "end": 678.876}, {"who": "A", "text": "大家翻遍備份才救回來，損失兩天營收。", "reveal": "p3", "start": 679.256, "end": 683.384}, {"who": "A", "text": "管理改善：正式環境異動一律開變更單，申請、核准、實施職務分離，每次變更都要附回復步驟。", "reveal": "lesson", "start": 683.764, "end": 692.38}]}, {"id": "c87", "kind": "control", "chapter": "第四站｜系統防護", "code": "8.7", "name": "防範惡意軟體", "en": "Protection against malware", "ops": ["端點防護／EDR 全面部署", "病毒碼與引擎自動更新", "郵件、檔案上傳掃描", "使用者資安意識宣導"], "audit": ["主控台清單比對資產清冊（覆蓋率）", "長期離線主機的追蹤", "告警處理紀錄", "無法安裝主機的補償措施"], "gaps": ["伺服器以效能為由未安裝", "主控台多台主機離線數月", "告警沒人看、沒人處理"], "start": 693.38, "end": 730.608, "lines": [{"who": "A", "text": "進到靠網路安全這一側，8.7 防範惡意軟體。", "reveal": "ops", "start": 694.08, "end": 698.448}, {"who": "A", "text": "要有端點防護或 EDR、病毒碼自動更新、郵件與檔案上傳的掃描，再加上使用者的資安意識。", "reveal": null, "start": 698.828, "end": 706.172}, {"who": "A", "text": "查核時，我會把防毒主控台的清單跟資產清冊對一對，看覆蓋率；也看長期離線的主機，還有告警有沒有人處理。", "reveal": "audit", "start": 706.552, "end": 715.6}, {"who": "R", "text": "伺服器說它很忙，不想裝防毒～", "reveal": "gaps", "start": 715.98, "end": 720.06}, {"who": "A", "text": "哈，這就是常見缺失：伺服器以效能為由沒裝，又沒有補償措施；主控台一堆主機離線好幾個月；告警根本沒人看。", "reveal": null, "start": 720.44, "end": 729.608}]}, {"id": "c818", "kind": "control", "chapter": "第四站｜系統防護", "code": "8.18", "name": "具特殊權限公用程式之使用", "en": "Use of privileged utility programs", "ops": ["識別可繞過控制的工具", "DB 管理、遠端執行、封包側錄工具", "限制使用並經授權", "保留使用紀錄，不需要即移除"], "audit": ["正式主機已安裝工具清單", "可執行工具的人員與權限", "工具使用紀錄"], "gaps": ["DB 工具人人能開，直接改資料", "沒有任何使用紀錄", "封包工具裝了就沒移除"], "start": 730.608, "end": 770.404, "lines": [{"who": "A", "text": "8.18 具特殊權限公用程式之使用，指的是可以繞過系統或應用程式控制的工具。", "reveal": "ops", "start": 731.308, "end": 737.908}, {"who": "A", "text": "像資料庫管理工具、遠端執行工具、封包側錄工具，都要限制使用、經過授權，並保留紀錄，不需要的就移除。", "reveal": null, "start": 738.288, "end": 747.936}, {"who": "A", "text": "查核時，我會看正式主機上裝了哪些工具、誰可以執行、有沒有使用紀錄。", "reveal": "audit", "start": 748.316, "end": 754.94}, {"who": "R", "text": "就像阿拉蕾的怪力一樣，不能隨便用！", "reveal": "gaps", "start": 755.32, "end": 759.544}, {"who": "A", "text": "沒錯！常見缺失是正式機的資料庫工具人人都能開，直接改資料還沒有紀錄；或是封包工具裝了就沒移除。", "reveal": null, "start": 759.924, "end": 769.404}]}, {"id": "c834", "kind": "control", "chapter": "第四站｜系統防護", "code": "8.34", "name": "稽核測試期間資訊系統之保護", "en": "Protection of information systems during audit testing", "ops": ["稽核與技術測試事先規劃並核准", "範圍、時段明確，避開營運尖峰", "盡量給唯讀權限", "結束後回收帳號與工具"], "audit": ["滲透測試授權書", "範圍與執行時段的核准紀錄", "稽核帳號是否已停用"], "gaps": ["尖峰時段掃描導致系統當機", "稽核帳號給管理者權限", "稽核結束一年帳號還沒收回"], "start": 770.404, "end": 814.28, "lines": [{"who": "A", "text": "8.34 稽核測試期間資訊系統之保護。注意喔，這裡的稽核也包含弱點掃描、滲透測試這類技術測試。", "reveal": "ops", "start": 771.104, "end": 780.536}, {"who": "A", "text": "測試前要規劃範圍、時段並經過核准，盡量給唯讀權限、避開營運尖峰，結束後把帳號和工具回收。", "reveal": null, "start": 780.916, "end": 789.364}, {"who": "A", "text": "查核時看滲透測試授權書、範圍與時段的核准，再看稽核用帳號，結束後有沒有停用。", "reveal": "audit", "start": 789.744, "end": 797.256}, {"who": "R", "text": "阿拉蕾記得！有人大白天掃描，結果系統當機了！", "reveal": "gaps", "start": 797.636, "end": 803.972}, {"who": "A", "text": "對，這就是常見缺失。另外稽核帳號給了管理者權限，稽核完一年都還沒收回，也非常常見。", "reveal": null, "start": 804.352, "end": 813.28}]}, {"id": "tips", "kind": "tips", "chapter": "總整理", "title": "稽核員的五個查核撇步", "items": [{"code": "8.25", "text": "抽一個今年上線的專案，從需求追到上線"}, {"code": "8.29", "text": "弱掃報告日期與上線日期放在一起看"}, {"code": "8.32", "text": "由部署／版控紀錄反向抽樣變更單"}, {"code": "8.31", "text": "正式主機帳號清單裡找開發人員"}, {"code": "8.30", "text": "合約資安條款＋廠商遠端連線紀錄"}], "start": 814.28, "end": 849.724, "lines": [{"who": "A", "text": "最後幫大家整理，稽核員的五個查核撇步。", "reveal": null, "start": 814.98, "end": 819.084}, {"who": "A", "text": "第一，抽一個今年上線的專案，從需求一路追到上線。", "reveal": "i0", "start": 819.464, "end": 824.36}, {"who": "A", "text": "第二，弱掃報告日期跟上線日期擺在一起看。", "reveal": "i1", "start": 824.74, "end": 828.964}, {"who": "A", "text": "第三，從部署或版控紀錄，反向抽樣變更單。", "reveal": "i2", "start": 829.344, "end": 833.904}, {"who": "A", "text": "第四，在正式主機的帳號清單裡，找找看有沒有開發人員。", "reveal": "i3", "start": 834.284, "end": 839.708}, {"who": "A", "text": "第五，委外就看合約資安條款，加上廠商遠端連線紀錄。", "reveal": "i4", "start": 840.088, "end": 845.416}, {"who": "R", "text": "阿拉蕾全部抄下來了！", "reveal": null, "start": 845.796, "end": 848.724}]}, {"id": "quiz", "kind": "quiz", "chapter": "隨堂小測驗", "title": "阿拉蕾隨堂考", "qs": [{"q": "工程師直接在正式機上改程式，違反哪些控制？", "a": "8.31 環境區隔＋8.32 變更管理"}, {"q": "委外廠商拿正式資料去測試，要看哪幾條？", "a": "8.30 委外開發＋8.31＋8.33 測試資訊"}, {"q": "弱掃報告比上線日還晚，是哪一條的缺失？", "a": "8.29 開發及驗收中之安全測試"}], "start": 849.724, "end": 893.76, "lines": [{"who": "R", "text": "換阿拉蕾出題！第一題：工程師直接在正式機上改程式，違反哪些控制措施？", "reveal": "q0", "start": 850.424, "end": 859.712}, {"who": "A", "text": "主要是 8.31 環境區隔，跟 8.32 變更管理。", "reveal": "a0", "start": 860.092, "end": 864.7}, {"who": "R", "text": "第二題：委外廠商拿正式資料去測試，要看哪幾條？", "reveal": "q1", "start": 865.08, "end": 871.224}, {"who": "A", "text": "8.30 委外開發、8.31 環境區隔，還有 8.33 測試資訊。", "reveal": "a1", "start": 871.604, "end": 877.34}, {"who": "R", "text": "第三題：弱掃報告比上線日期還晚，是哪一條的缺失？", "reveal": "q2", "start": 877.72, "end": 883.936}, {"who": "A", "text": "8.29 開發及驗收中之安全測試！", "reveal": "a2", "start": 884.316, "end": 887.892}, {"who": "R", "text": "全部答對！博士說給你一百分！", "reveal": null, "start": 888.272, "end": 892.76}]}, {"id": "outro", "kind": "outro", "chapter": "結語", "start": 893.76, "end": 920.456, "lines": [{"who": "A", "text": "最後總結一句：應用程式安全，不是上線前的最後一道檢查，而是從需求開始，就一路內建在流程裡。", "reveal": null, "start": 894.46, "end": 902.86}, {"who": "A", "text": "作業要有紀錄，稽核要能追溯，缺失要能改善，這就是 PDCA 的精神。", "reveal": "pdca", "start": 903.24, "end": 909.552}, {"who": "R", "text": "嗯掐～謝謝大家！我們下次見，咻～！", "reveal": null, "start": 909.932, "end": 915.092}, {"who": "A", "text": "謝謝大家，我是 Allan Lo，我們下堂課見！", "reveal": null, "start": 915.472, "end": 919.456}]}]};
+</script>
+<script>
+(function(){
+"use strict";
+const D = window.DECK;
+const $ = id => document.getElementById(id);
+const stage = $("stage"), content = $("content");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fx = (cls, ref, d, extra) => `fx ${cls}" data-ref="${ref}" style="--d:${d||0}s;${extra||""}`;
+
+/* ---------------- 圖示 ---------------- */
+const I = {
+  target:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>',
+  search:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>',
+  warn:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3 2.5 20h19z"/><path d="M12 10v5" stroke-linecap="round"/><circle cx="12" cy="17.6" r=".9" fill="currentColor"/></svg>',
+  bulb:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.8.6 1.1 1.4 1.1 2.2h5c0-.8.3-1.6 1.1-2.2A6 6 0 0 0 12 3z" fill="currentColor" fill-opacity=".25"/></svg>',
+  check:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="m7 12.5 3.2 3.2L17 9"/></svg>',
+  arrow:'<svg viewBox="0 0 40 34" fill="currentColor"><path d="M0 11h22V0l18 17-18 17V23H0z"/></svg>',
+};
+const PIC = {
+  cal:'<svg viewBox="0 0 110 110"><rect x="12" y="20" width="86" height="78" rx="10" fill="#fff" stroke="#12332A" stroke-width="5"/><rect x="12" y="20" width="86" height="24" rx="10" fill="#DD4B32" stroke="#12332A" stroke-width="5"/><path d="M34 10v20M76 10v20" stroke="#12332A" stroke-width="6" stroke-linecap="round"/><text x="55" y="86" text-anchor="middle" font-family="Huninn,sans-serif" font-size="34" fill="#DD4B32">11.11</text></svg>',
+  bug:'<svg viewBox="0 0 110 110"><ellipse cx="55" cy="62" rx="24" ry="30" fill="#DD4B32" stroke="#12332A" stroke-width="5"/><circle cx="55" cy="30" r="13" fill="#12332A"/><path d="M31 50 14 42M31 66H12M33 82l-16 10M79 50l17-8M79 66h19M77 82l16 10M48 20l-8-10M62 20l8-10" stroke="#12332A" stroke-width="5" stroke-linecap="round"/><path d="M55 36v54" stroke="#12332A" stroke-width="4"/><text x="55" y="70" text-anchor="middle" font-size="15" font-weight="900" fill="#fff" font-family="sans-serif">OR 1=1</text></svg>',
+  leak:'<svg viewBox="0 0 110 110"><ellipse cx="55" cy="24" rx="34" ry="11" fill="#2E6BD1" stroke="#12332A" stroke-width="5"/><path d="M21 24v46c0 6 15 11 34 11s34-5 34-11V24" fill="#2E6BD1" stroke="#12332A" stroke-width="5"/><path d="M21 47c0 6 15 11 34 11s34-5 34-11" fill="none" stroke="#12332A" stroke-width="4"/><path d="M76 74l10 14M64 84l4 16M88 66l14 6" stroke="#DD4B32" stroke-width="6" stroke-linecap="round"/><circle cx="96" cy="94" r="6" fill="#DD4B32"/></svg>',
+  db:'<svg viewBox="0 0 110 110"><ellipse cx="40" cy="26" rx="26" ry="9" fill="#0E9A68" stroke="#12332A" stroke-width="5"/><path d="M14 26v40c0 5 12 9 26 9s26-4 26-9V26" fill="#0E9A68" stroke="#12332A" stroke-width="5"/><path d="M60 70h34M82 58l14 12-14 12" fill="none" stroke="#DD4B32" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><rect x="70" y="84" width="34" height="20" rx="4" fill="#FFC63D" stroke="#12332A" stroke-width="4"/></svg>',
+  laptop:'<svg viewBox="0 0 110 110"><rect x="22" y="28" width="66" height="44" rx="5" fill="#BFE3F6" stroke="#12332A" stroke-width="5"/><path d="M10 80h90l-8 12H18z" fill="#9AB3AA" stroke="#12332A" stroke-width="5" stroke-linejoin="round"/><text x="55" y="60" text-anchor="middle" font-size="30" font-weight="900" fill="#DD4B32" font-family="sans-serif">?!</text><path d="M86 16l8-8M94 26h10M76 10V2" stroke="#DD4B32" stroke-width="5" stroke-linecap="round"/></svg>',
+  gavel:'<svg viewBox="0 0 110 110"><rect x="30" y="18" width="46" height="22" rx="6" transform="rotate(-35 53 29)" fill="#B9773F" stroke="#12332A" stroke-width="5"/><path d="M56 40 86 82" stroke="#12332A" stroke-width="9" stroke-linecap="round"/><rect x="16" y="86" width="60" height="12" rx="4" fill="#B9773F" stroke="#12332A" stroke-width="5"/></svg>',
+  moon:'<svg viewBox="0 0 110 110"><path d="M70 14a40 40 0 1 0 26 58A32 32 0 0 1 70 14z" fill="#FFC63D" stroke="#12332A" stroke-width="5" stroke-linejoin="round"/><path d="M22 20l4 8 8 4-8 4-4 8-4-8-8-4 8-4z" fill="#FFC63D"/><text x="44" y="70" font-size="22" font-weight="900" fill="#12332A" font-family="sans-serif">FRI</text></svg>',
+  down:'<svg viewBox="0 0 110 110"><rect x="14" y="16" width="82" height="58" rx="6" fill="#12332A"/><path d="M24 34l16 14 14-10 16 18 16-10" fill="none" stroke="#DD4B32" stroke-width="5" stroke-linejoin="round"/><path d="M40 92h30M55 74v18" stroke="#12332A" stroke-width="6" stroke-linecap="round"/><text x="55" y="68" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" font-family="sans-serif">ERROR 500</text></svg>',
+  tools:'<svg viewBox="0 0 110 110"><rect x="18" y="56" width="74" height="40" rx="6" fill="#0E9A68" stroke="#12332A" stroke-width="5"/><path d="M40 56V46a6 6 0 0 1 6-6h18a6 6 0 0 1 6 6v10" fill="none" stroke="#12332A" stroke-width="5"/><path d="M30 30 52 8M70 10l16 16-8 8-16-16z" stroke="#12332A" stroke-width="6" stroke-linecap="round" fill="#FFC63D"/></svg>',
+  globe:'<svg viewBox="0 0 110 110"><circle cx="55" cy="40" r="28" fill="#fff" stroke="#12332A" stroke-width="5"/><path d="M30 34c10 4 16-6 24 0s4 14 14 10 8-10 14-6M44 16c4 6 2 10 8 12" fill="none" stroke="#0E9A68" stroke-width="5" stroke-linecap="round"/><path d="M55 68v10M30 78h50M30 78v8M80 78v8" stroke="#12332A" stroke-width="4"/><rect x="16" y="86" width="28" height="18" rx="3" fill="#fff" stroke="#12332A" stroke-width="4"/><rect x="66" y="86" width="28" height="18" rx="3" fill="#fff" stroke="#12332A" stroke-width="4"/></svg>',
+  shield:'<svg viewBox="0 0 150 150"><path d="M75 8 132 30v42c0 36-24 60-57 72C42 132 18 108 18 72V30z" fill="#0E9A68" stroke="#12332A" stroke-width="6" stroke-linejoin="round"/><path d="M58 60 42 76l16 16M92 60l16 16-16 16M82 54 68 98" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  bugs:'<svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="60" fill="#FFC63D" stroke="#12332A" stroke-width="6"/><path d="M48 62h54M48 82h40M48 102h24" stroke="#12332A" stroke-width="8" stroke-linecap="round"/><circle cx="108" cy="104" r="16" fill="#DD4B32" stroke="#12332A" stroke-width="5"/></svg>',
+};
+
+/* ---------------- 角色 ---------------- */
+const ALLAN = `<svg viewBox="0 0 230 272" aria-label="Q版 Allan Lo 講師">
+<g class="body-bob">
+ <path d="M50 272c0-58 26-86 65-86s65 28 65 86z" fill="#1F3A5F"/>
+ <path d="M97 188l18 40 18-40z" fill="#fff"/>
+ <path d="M111 194h8l5 42-9 12-9-12z" fill="#0E9A68"/>
+ <path d="M97 188l12 42-24-22zM133 188l-12 42 24-22z" fill="#16304F"/>
+ <rect x="132" y="226" width="44" height="20" rx="4" fill="#fff"/><text x="154" y="240" text-anchor="middle" font-size="10.5" font-weight="900" fill="#12332A" font-family="sans-serif">Allan Lo</text>
+ <g class="arm"><path d="M170 214q26-16 32-46" stroke="#1F3A5F" stroke-width="20" stroke-linecap="round" fill="none"/><path d="M203 166 222 92" stroke="#7A4B2A" stroke-width="5" stroke-linecap="round"/><circle cx="222" cy="90" r="6" fill="#DD4B32"/><circle cx="202" cy="166" r="11" fill="#FFD9BC"/></g>
+ <path d="M60 214q-14 22-4 44" stroke="#1F3A5F" stroke-width="20" stroke-linecap="round" fill="none"/>
+ <rect x="104" y="164" width="22" height="26" fill="#F2C4A2"/>
+ <circle cx="44" cy="104" r="13" fill="#FFD9BC"/><circle cx="186" cy="104" r="13" fill="#FFD9BC"/>
+ <ellipse cx="115" cy="98" rx="72" ry="68" fill="#FFDCC0"/>
+ <path d="M42 102C34 40 82 16 120 18c42 2 72 26 68 84-6-26-26-44-58-46-22 12-56 8-72 22-8 8-12 16-16 24z" fill="#1E1E24"/>
+ <path d="M120 22c-18 2-34 14-40 34 16-12 30-16 44-14z" fill="#33333C"/>
+ <path d="M76 74q12-6 24-2M130 72q12-4 24 2" stroke="#1E1E24" stroke-width="6" stroke-linecap="round" fill="none"/>
+ <rect x="70" y="82" width="40" height="30" rx="9" fill="#fff" fill-opacity=".35" stroke="#1E1E24" stroke-width="4.5"/>
+ <rect x="120" y="82" width="40" height="30" rx="9" fill="#fff" fill-opacity=".35" stroke="#1E1E24" stroke-width="4.5"/>
+ <path d="M110 94h10" stroke="#1E1E24" stroke-width="4.5"/>
+ <g class="eye"><ellipse cx="90" cy="97" rx="5.5" ry="7" fill="#1E1E24"/><circle cx="92" cy="94" r="2" fill="#fff"/></g>
+ <g class="eye"><ellipse cx="140" cy="97" rx="5.5" ry="7" fill="#1E1E24"/><circle cx="142" cy="94" r="2" fill="#fff"/></g>
+ <ellipse cx="74" cy="124" rx="10" ry="6" fill="#FF8F8F" opacity=".45"/><ellipse cx="156" cy="124" rx="10" ry="6" fill="#FF8F8F" opacity=".45"/>
+ <path class="m-closed" d="M101 130q14 13 28 0" stroke="#7A3B2E" stroke-width="4" stroke-linecap="round" fill="none"/>
+ <g class="m-open"><path d="M100 128q15 0 30 0q-2 16-15 16t-15-16z" fill="#7A2E2E"/><path d="M106 138q9-5 18 0q-4 6-9 6t-9-6z" fill="#FF8C8C"/></g>
+</g></svg>`;
+const ARALE = `<svg viewBox="0 0 230 272" aria-label="助教阿拉蕾">
+<g class="body-bob">
+ <path d="M66 272c0-52 20-80 49-80s49 28 49 80z" fill="#3E73DB"/>
+ <path d="M96 194l19 18 19-18z" fill="#fff"/>
+ <rect x="94" y="222" width="42" height="18" rx="4" fill="#fff"/><text x="115" y="235" text-anchor="middle" font-size="11" font-weight="900" fill="#8B5BD6" font-family="sans-serif">助教</text>
+ <g class="arm"><path d="M156 212q30-6 52-30" stroke="#3E73DB" stroke-width="17" stroke-linecap="round" fill="none"/><circle cx="210" cy="180" r="10" fill="#FFE0C6"/></g>
+ <path d="M74 212q-30-6-52-30" stroke="#3E73DB" stroke-width="17" stroke-linecap="round" fill="none"/><circle cx="20" cy="180" r="10" fill="#FFE0C6"/>
+ <ellipse cx="115" cy="112" rx="80" ry="74" fill="#5B3A9E"/>
+ <ellipse cx="115" cy="112" rx="64" ry="62" fill="#FFE0C6"/>
+ <path d="M50 96c4-30 28-48 65-48s62 18 66 48l-12-6-8 12-10-12-10 12-12-12-12 12-12-12-12 12-10-12-10 12-8-12z" fill="#5B3A9E"/>
+ <path d="M50 92c-2-34 26-62 65-62s68 28 65 62c-20-10-42-14-65-14s-45 4-65 14z" fill="#E23B3B"/>
+ <path d="M48 92q67-24 134 0" stroke="#B82020" stroke-width="7" fill="none" stroke-linecap="round"/>
+ <path d="M54 58c-16-10-30-8-40-2 10 2 16 6 20 12-8-2-14 0-18 4 12 0 22 2 32 6z" fill="#fff" stroke="#9AA" stroke-width="2"/>
+ <path d="M176 58c16-10 30-8 40-2-10 2-16 6-20 12 8-2 14 0 18 4-12 0-22 2-32 6z" fill="#fff" stroke="#9AA" stroke-width="2"/>
+ <circle cx="88" cy="118" r="24" fill="#fff" fill-opacity=".4" stroke="#1E1E24" stroke-width="5"/>
+ <circle cx="142" cy="118" r="24" fill="#fff" fill-opacity=".4" stroke="#1E1E24" stroke-width="5"/>
+ <path d="M112 116h6" stroke="#1E1E24" stroke-width="5"/>
+ <g class="eye"><ellipse cx="88" cy="119" rx="7" ry="10" fill="#1E1E24"/><circle cx="91" cy="114" r="3" fill="#fff"/></g>
+ <g class="eye"><ellipse cx="142" cy="119" rx="7" ry="10" fill="#1E1E24"/><circle cx="145" cy="114" r="3" fill="#fff"/></g>
+ <ellipse cx="66" cy="146" rx="10" ry="6" fill="#FF7FA0" opacity=".55"/><ellipse cx="164" cy="146" rx="10" ry="6" fill="#FF7FA0" opacity=".55"/>
+ <path class="m-closed" d="M100 150q15 14 30 0z" fill="#C2364A" stroke="#7A1F2E" stroke-width="2" stroke-linejoin="round"/>
+ <g class="m-open"><path d="M98 148h34q-2 22-17 22t-17-22z" fill="#9E2236"/><path d="M106 162q9-6 18 0q-4 8-9 8t-9-8z" fill="#FF8CA4"/></g>
+</g></svg>`;
+$("allan").insertAdjacentHTML("beforeend", ALLAN);
+$("arale").insertAdjacentHTML("beforeend", ARALE);
+
+/* ---------------- 各場景繪製 ---------------- */
+function bullets(list, ref){
+  return "<ul>" + list.map((b,i)=>`<li class="${fx("a-left",ref,.35+i*.22)}">${esc(b)}</li>`).join("") + "</ul>";
+}
+const R = {
+  title(s){
+    return `<div class="t-wrap">
+      <div class="t-kicker ${fx("a-pop","scene",.3)}">${esc(s.subtitle)}</div>
+      <h1 class="t-title ${fx("a-pop","scene",.55)}">應用程式<span>安全</span></h1>
+      <div class="t-en ${fx("a-fade","scene",.9)}">${esc(s.en)}</div>
+      <div class="t-sub ${fx("a-rise","r:sub",0)}">講師 Allan Lo ‧ 助教 阿拉蕾</div>
+      <div class="tri">
+        <div class="k1 ${fx("a-pop","r:tri",0)}">${I.target} ISMS 作業重點</div>
+        <div class="k2 ${fx("a-pop","r:tri",.3)}">${I.search} 稽核查核重點</div>
+        <div class="k3 ${fx("a-pop","r:tri",.6)}">${I.warn} 常見缺失</div>
+      </div></div>
+      <div class="shield ${fx("a-float","g",0,"left:40px;top:40px")}">${PIC.shield}</div>
+      <div class="shield ${fx("a-float","g",-1.4,"right:40px;top:60px;width:120px;height:120px")}">${PIC.bugs}</div>`;
+  },
+  map(){
+    const boxes = [["需求","#BDEFD8"],["架構<br>分析設計","#9BE6C4"],["程式編寫","#7FDDB2"],["測試<br>與驗收","#4FCF98"],["發行/部署<br>/上線/維護","#2BB87D"]];
+    const ctl = [["8.26","應用系統<br>安全要求事項"],["8.27","安全系統架構<br>及工程原則"],["8.28","安全<br>程式設計"],["8.29","開發及驗收中<br>之安全測試"],["8.32","變更管理"]];
+    const X = [8,202,396,590,784];
+    let h = `<div class="map"><div class="m-band l">系統安全</div><div class="m-band r">網路安全</div>
+      <div class="m-top"><span class="${fx("a-rise","r:top",0)}"><b>5.37</b>書面紀錄之運作程序</span><span class="${fx("a-rise","r:top",.2)}"><b>8.25</b>安全開發生命週期</span><span class="${fx("a-rise","r:top",.4)}"><b>8.31</b>開發、測試與運作環境之區隔</span><span class="${fx("a-rise","r:top",.6)}"><b>8.32</b>變更管理</span></div>
+      <div class="m-axis ${fx("a-grow","r:top",.8)}"></div>`;
+    boxes.forEach((b,i)=>{
+      h += `<div class="m-box ${fx("a-pop","r:flow",i*.45,`left:${X[i]}px;background:${b[1]};${i==4?"color:#fff":""}`)}">${b[0]}</div>`;
+      if(i<4) h += `<div class="m-arrow ${fx("a-fade","r:flow",i*.45+.3,`left:${X[i]+160}px`)}"></div>`;
+      h += `<div class="m-ctl ${fx("a-rise","r:ctrl",i*.35,`left:${X[i]-10}px`)}"><b>${ctl[i][0]}</b>${ctl[i][1]}</div>`;
+    });
+    h += `<div class="m-830 ${fx("a-grow","r:o830",0)}"><b>8.30</b>委外開發</div>
+      <svg class="m-up ${fx("a-fade","r:o830",.6)}" viewBox="0 0 60 60"><path d="M0 48h36V18" fill="none" stroke="#9FD39A" stroke-width="12"/><path d="M36 0 54 22H18z" fill="#9FD39A"/></svg>
+      <div class="m-right"><div class="${fx("a-pop","r:right",0,"width:96px;height:96px")}">${PIC.globe}</div>
+        <div class="rt ${fx("a-rise","r:right",.3)}"><b>8.7</b>防範惡意軟體</div>
+        <div class="rt ${fx("a-rise","r:right",.6)}"><b>8.18</b>具特殊權限公用程式之使用</div>
+        <div class="rt ${fx("a-rise","r:right",.9)}"><b>8.34</b>稽核測試期間資訊系統之保護</div></div></div>`;
+    return h;
+  },
+  chapter(s){
+    const st = ["管理基礎","開發流程","委外開發","上線維運"];
+    const cur = ["第一站","第二站","第三站","第四站"].indexOf(s.no);
+    let tr = `<div class="track ${fx("a-fade","scene",.2)}"><div class="rail"></div>`;
+    st.forEach((n,i)=>{ const x = i*100/3;
+      tr += `<div class="st ${i<cur?"done":i==cur?"cur "+fx("a-pulse","g",0,`left:${x}%`):""}"${i==cur?"":` style="left:${x}%"`}></div><div class="lb" style="left:${x}%">${n}</div>`; });
+    tr += `</div>`;
+    return `<div class="chap"><div class="chap-no ${fx("a-stamp","scene",.3)}">${esc(s.no)}</div>
+      <div class="chap-title ${fx("a-pop","scene",.6)}">${esc(s.title)}</div>
+      <div class="chap-codes">${s.codes.map((c,i)=>`<span class="${fx("a-pop","scene",.9+i*.15)}">${c}</span>`).join("")}</div></div>${tr}`;
+  },
+  control(s){
+    const card = (k,title,icon,list) => `<div class="slot"><div class="card ${k} ${fx("a-pop","r:"+k,0)}">
+      <div class="card-h">${icon}${title}</div>${bullets(list,"r:"+k)}
+      ${k=="gaps"?`<div class="badge ${fx("a-stamp","r:gaps",1.2)}">缺失</div>`:""}</div></div>`;
+    return `<div class="ctl-head"><div class="ctl-code ${fx("a-pop","scene",.3)}">${s.code}</div>
+      <div class="${fx("a-left","scene",.5)}"><div class="ctl-name">${esc(s.name)}</div><div class="ctl-en">${esc(s.en)}</div></div></div>
+      <div class="cards">${card("ops","ISMS 作業重點",I.target,s.ops)}${card("audit","稽核查核重點",I.search,s.audit)}${card("gaps","常見缺失",I.warn,s.gaps)}</div>`;
+  },
+  case(s){
+    const ps = s.panels.map((p,i)=>`<div class="panel ${fx("a-pop","r:p"+(i+1),0)}"><div class="no">${i+1}</div>
+      <div class="pic">${PIC[p.icon]}</div><div class="ph">${esc(p.head)}</div><div class="pc">${esc(p.cap)}</div></div>`).join("");
+    return `<div class="case-head"><span class="case-tag ${fx("a-stamp","scene",.3)}">${esc(s.tag)}</span><span class="case-title ${fx("a-left","scene",.55)}">${esc(s.title)}</span></div>
+      <div class="panels">${ps}</div>
+      <div class="p-arrow ${fx("a-fade","r:p2",0,"left:385px")}">${I.arrow}</div>
+      <div class="p-arrow ${fx("a-fade","r:p3",0,"left:794px")}">${I.arrow}</div>
+      <div class="lesson ${fx("a-grow","r:lesson",0)}">${I.bulb}<div class="lt"><small>管理改善</small>${esc(s.lesson)}</div>
+        <div class="codes">${s.codes.map(c=>`<span>${c}</span>`).join("")}</div></div>`;
+  },
+  tips(s){
+    return `<div class="tips-title ${fx("a-left","scene",.3)}">${esc(s.title)}</div><div class="tips">` +
+      s.items.map((it,i)=>`<div class="tip ${fx("a-left","r:i"+i,0)}"><span class="n">${i+1}</span><span class="c">${it.code}</span><span class="x">${esc(it.text)}</span><span class="ok ${fx("a-stamp","r:i"+i,.5)}">${I.check}</span></div>`).join("") + `</div>`;
+  },
+  quiz(s){
+    return `<div class="quiz-title ${fx("a-left","scene",.3)}">${esc(s.title)}</div><div class="quiz">` +
+      s.qs.map((q,i)=>`<div class="qrow"><div class="q ${fx("a-pop","r:q"+i,0)}"><b>Q${i+1}</b>${esc(q.q)}</div>
+        <div class="a ${fx("a-pop","r:a"+i,0)}">${I.check}${esc(q.a)}</div></div>`).join("") +
+      `</div><div class="score ${fx("a-stamp","r:score",0)}">100</div>`;
+  },
+  outro(){
+    const q = [["P","規劃","#0E9A68"],["D","執行","#2E6BD1"],["C","查核","#FFC63D"],["A","改善","#DD4B32"]];
+    let wheel = `<svg class="pdca ${fx("a-pop","r:pdca",0)}" viewBox="0 0 300 300"><g>`;
+    q.forEach((p,i)=>{ const a0=(i*90-90)*Math.PI/180, a1=((i+1)*90-90)*Math.PI/180, r=140;
+      const x0=150+r*Math.cos(a0), y0=150+r*Math.sin(a0), x1=150+r*Math.cos(a1), y1=150+r*Math.sin(a1);
+      const am=(i*90-45)*Math.PI/180, tx=150+88*Math.cos(am), ty=150+88*Math.sin(am);
+      wheel += `<path d="M150 150L${x0} ${y0}A${r} ${r} 0 0 1 ${x1} ${y1}z" fill="${p[2]}" stroke="#fff" stroke-width="6"/>
+        <text x="${tx}" y="${ty-4}" text-anchor="middle" font-family="Huninn,sans-serif" font-size="44" fill="#fff">${p[0]}</text>
+        <text x="${tx}" y="${ty+26}" text-anchor="middle" font-family="Noto Sans TC,sans-serif" font-weight="700" font-size="20" fill="#fff">${p[1]}</text>`; });
+    wheel += `</g><circle cx="150" cy="150" r="36" fill="#fff" stroke="#12332A" stroke-width="5"/><text x="150" y="160" text-anchor="middle" font-family="Huninn,sans-serif" font-size="26" fill="#12332A">ISMS</text></svg>`;
+    return `<div class="out"><div class="out-t"><div class="big ${fx("a-rise","scene",.4)}">安全，<br>從<span>需求</span>開始<br>就內建在流程裡</div>
+      <div class="sm ${fx("a-rise","r:pdca",.2)}">作業有紀錄 ‧ 稽核能追溯 ‧ 缺失能改善</div>
+      <div class="thanks ${fx("a-stamp","r:bye",0)}">謝謝聆聽！</div></div>${wheel}</div>`;
+  },
+};
+
+/* ---------------- 時間軸 ---------------- */
+D.scenes.forEach((s,si)=>{
+  s.rev = {};
+  s.lines.forEach((l,i)=>{ if(l.reveal && !(l.reveal in s.rev)) s.rev[l.reveal]=l.start; });
+  if(s.kind==="quiz"){ const last=s.lines[s.lines.length-1]; s.rev.score = last.start; }
+  if(s.kind==="outro"){ s.rev.bye = s.lines[s.lines.length-2].start; }
+  s.idx = si;
+});
+const dots = $("dots");
+dots.innerHTML = D.scenes.map(()=>"<b></b>").join("");
+const jump = $("jump");
+jump.innerHTML = D.scenes.map((s,i)=>`<option value="${i}">${i+1}. ${esc(s.chapter)}${s.code?" "+s.code+" "+esc(s.name):s.title?" "+esc(s.title):""}</option>`).join("");
+
+let curScene = -1, sceneFx = [], curLine = null;
+const allan = $("allan"), arale = $("arale"), subbox = $("subbox"), wipe = $("wipe");
+const charFxEls = [...stage.querySelectorAll(".char, .char *")];
+
+function sceneAt(t){
+  const S = D.scenes;
+  for(let i=S.length-1;i>=0;i--) if(t >= S[i].start) return S[i];
+  return S[0];
+}
+function setTime(el, ms){
+  const an = el.getAnimations ? el.getAnimations() : [];
+  for(const a of an){ try{ a.pause(); a.currentTime = Math.max(0, ms); }catch(e){} }
+}
+function buildScene(s){
+  content.innerHTML = `<div class="scene-root">${R[s.kind](s)}</div>`;
+  sceneFx = [...content.querySelectorAll(".fx")];
+  $("chapter").textContent = s.chapter;
+  [...dots.children].forEach((b,i)=>{ b.className = i<s.idx?"on":i===s.idx?"cur":""; });
+  jump.value = String(s.idx);
+  // 阿拉蕾在開場以「咻～」衝進來
+  arale.classList.toggle("enter", s.id==="open");
+}
+function renderAt(t){
+  t = Math.max(0, Math.min(t, D.duration));
+  const s = sceneAt(t);
+  if(s.idx !== curScene){ curScene = s.idx; buildScene(s); }
+  // 場景內元素
+  for(const el of sceneFx){
+    const ref = el.dataset.ref || "scene";
+    let r0;
+    if(ref==="g") r0 = 0;
+    else if(ref==="scene") r0 = s.start;
+    else { const k = ref.slice(2); r0 = (k in s.rev) ? s.rev[k] : 1e9; }
+    setTime(el, (t - r0)*1000);
+  }
+  setTime(wipe, (t - s.start)*1000);
+  // 目前台詞
+  let line = null, li = -1;
+  for(let i=0;i<s.lines.length;i++){ if(t >= s.lines[i].start) { line = s.lines[i]; li = i; } }
+  const speaking = line && t < line.end ? line.who : null;
+  allan.classList.toggle("talking", speaking==="A");
+  arale.classList.toggle("talking", speaking==="R");
+  const firstR = (D.scenes[0].lines.find(l=>l.who==="R")||{start:2}).start;
+  for(const el of charFxEls){
+    if(el === arale && arale.classList.contains("enter")) setTime(el, (t - (firstR - .9))*1000);
+    else setTime(el, t*1000);
+  }
+  if(line !== curLine){
+    curLine = line;
+    if(line){
+      subbox.hidden = false;
+      $("subwho").className = "sub-who " + line.who;
+      $("subwho").textContent = line.who==="A" ? "Allan" : "阿拉蕾";
+      $("subtext").textContent = line.text;
+    } else subbox.hidden = true;
+  }
+  if(line) setTime(subbox, (t - line.start)*1000);
+  updateUI(t);
+}
+window.renderAt = renderAt;
+
+/* ---------------- 播放控制 ---------------- */
+const audio = $("audio"), fill = $("fill"), seek = $("seek"), time = $("time"), playBtn = $("play");
+const fmt = x => { x = Math.max(0, Math.floor(x)); return Math.floor(x/60)+":"+String(x%60).padStart(2,"0"); };
+seek.setAttribute("aria-valuemax", String(Math.round(D.duration)));
+D.scenes.filter(s=>s.kind==="chapter"||s.kind==="case"||s.kind==="tips").forEach(s=>{
+  const k = document.createElement("div"); k.className="tick"; k.style.left = (s.start/D.duration*100)+"%"; seek.appendChild(k); });
+function updateUI(t){
+  fill.style.width = (t/D.duration*100)+"%";
+  time.textContent = fmt(t)+" / "+fmt(D.duration);
+  seek.setAttribute("aria-valuenow", String(Math.round(t)));
+}
+let raf = 0;
+function loop(){ renderAt(audio.currentTime); raf = requestAnimationFrame(loop); }
+function play(){ $("start").hidden = true; const p = audio.play(); if(p && p.catch) p.catch(()=>{}); }
+function pause(){ audio.pause(); }
+audio.addEventListener("play", ()=>{ playBtn.textContent="暫停"; cancelAnimationFrame(raf); loop(); });
+audio.addEventListener("pause", ()=>{ playBtn.textContent="播放"; cancelAnimationFrame(raf); renderAt(audio.currentTime); });
+audio.addEventListener("ended", ()=>{ playBtn.textContent="重播"; });
+function go(t){ audio.currentTime = Math.max(0, Math.min(t, D.duration-.05)); renderAt(audio.currentTime); }
+playBtn.onclick = ()=> audio.paused ? play() : pause();
+$("start").onclick = play;
+$("prev").onclick = ()=>{ const s = sceneAt(audio.currentTime); const target = (audio.currentTime - s.start < 2 && s.idx>0) ? D.scenes[s.idx-1] : s; go(target.start+.01); };
+$("next").onclick = ()=>{ const s = sceneAt(audio.currentTime); if(s.idx < D.scenes.length-1) go(D.scenes[s.idx+1].start+.01); };
+jump.onchange = ()=> go(D.scenes[+jump.value].start+.01);
+const rates=[1,1.25,1.5,.85]; let ri=0;
+$("rate").onclick = ()=>{ ri=(ri+1)%rates.length; audio.playbackRate=rates[ri]; $("rate").textContent=rates[ri]+"×"; };
+$("cc").onclick = ()=>{ const off = document.body.classList.toggle("nocc"); $("cc").setAttribute("aria-pressed", String(!off)); };
+$("fs").onclick = ()=>{ const v=$("viewport"); try{ (document.fullscreenElement ? document.exitFullscreen() : v.requestFullscreen()).catch(()=>{}); }catch(e){} };
+function seekFrom(e){ const r = seek.getBoundingClientRect(); go((e.clientX - r.left)/r.width*D.duration); }
+seek.addEventListener("pointerdown", e=>{ seek.setPointerCapture(e.pointerId); seekFrom(e);
+  const mv = ev=>seekFrom(ev), up = ()=>{ seek.removeEventListener("pointermove",mv); seek.removeEventListener("pointerup",up); };
+  seek.addEventListener("pointermove",mv); seek.addEventListener("pointerup",up); });
+seek.addEventListener("keydown", e=>{ if(e.key==="ArrowRight"){go(audio.currentTime+5);e.preventDefault();} if(e.key==="ArrowLeft"){go(audio.currentTime-5);e.preventDefault();} });
+document.addEventListener("keydown", e=>{
+  if(e.target.closest && e.target.closest("select,.seek")) return;
+  if(e.code==="Space"){ e.preventDefault(); audio.paused?play():pause(); }
+  else if(e.key==="ArrowRight") $("next").click();
+  else if(e.key==="ArrowLeft") $("prev").click();
+  else if(e.key==="f"||e.key==="F") $("fs").click();
+});
+
+/* ---------------- 等比縮放 ---------------- */
+function fit(){ const v = $("viewport"); stage.style.transform = `scale(${v.clientWidth/1280})`; }
+window.addEventListener("resize", fit);
+if(location.hash === "#render") document.body.classList.add("render");
+fit();
+renderAt(0);
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ fit(); curScene=-1; renderAt(audio.currentTime||0); });
+})();
+</script>
+
+</body>
+</html>

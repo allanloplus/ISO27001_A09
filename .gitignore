@@ -1,0 +1,5 @@
+presentation/audio_cache/
+video/frames/
+video/*.part.mp4
+__pycache__/
+node_modules/
