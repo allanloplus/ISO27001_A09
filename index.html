@@ -255,6 +255,7 @@ body.nocc .sub{display:none}
 .controls select{max-width:100%}
 .startbtn{position:absolute;inset:0;margin:auto;width:220px;height:76px;z-index:30;border:0;border-radius:40px;background:var(--green);color:#fff;font-family:var(--font-display);font-size:28px;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;gap:10px}
 .startbtn:hover{background:var(--deep)}
+[hidden]{display:none!important}
 .hint{font-size:12px;color:#8FB3A5;text-align:center}
 @media (prefers-reduced-motion: reduce){.wipe{display:none}}
 </style>
@@ -559,7 +560,7 @@ let raf = 0;
 function loop(){ renderAt(audio.currentTime); raf = requestAnimationFrame(loop); }
 function play(){ $("start").hidden = true; const p = audio.play(); if(p && p.catch) p.catch(()=>{}); }
 function pause(){ audio.pause(); }
-audio.addEventListener("play", ()=>{ playBtn.textContent="暫停"; cancelAnimationFrame(raf); loop(); });
+audio.addEventListener("play", ()=>{ $("start").hidden = true; playBtn.textContent="暫停"; cancelAnimationFrame(raf); loop(); });
 audio.addEventListener("pause", ()=>{ playBtn.textContent="播放"; cancelAnimationFrame(raf); renderAt(audio.currentTime); });
 audio.addEventListener("ended", ()=>{ playBtn.textContent="重播"; });
 function go(t){ audio.currentTime = Math.max(0, Math.min(t, D.duration-.05)); renderAt(audio.currentTime); }
