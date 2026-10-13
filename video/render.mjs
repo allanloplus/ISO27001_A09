@@ -40,7 +40,7 @@ async function work(w) {
   const from = w * per, to = Math.min(total, from + per);
   const part = path.join(outDir, `seg${w}.part.mp4`);
   const ff = spawn('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '23', '-pix_fmt', 'yuv420p', '-r', String(FPS), part], { stdio: ['pipe', 'inherit', 'inherit'] });
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '27', '-tune', 'animation', '-pix_fmt', 'yuv420p', '-r', String(FPS), part], { stdio: ['pipe', 'inherit', 'inherit'] });
   const page = await openPage(browser);
   for (let f = from; f < to; f++) {
     await page.evaluate(t => window.renderAt(t), f / FPS);
