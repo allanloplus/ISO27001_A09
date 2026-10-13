@@ -88,29 +88,27 @@ body.render .controls,body.render .startbtn,body.render .hint{display:none!impor
 @keyframes dashin{0%{opacity:0;transform:translateX(360px) rotate(14deg)}55%{opacity:1;transform:translateX(-26px) rotate(-6deg)}100%{opacity:1;transform:none}}
 @keyframes glow{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.08)}}
 
-/* ---------- 角色 ---------- */
-.char{position:absolute;bottom:-6px;width:200px;height:236px;z-index:6}
-.char svg{width:100%;height:100%;overflow:visible}
-#allan{left:2px}
-#arale{right:0}
-.char .body-bob{animation:bob 2.6s ease-in-out infinite}
-#arale .body-bob{animation-duration:1.9s}
-.char .eye{transform-box:fill-box;transform-origin:center;animation:blink 4.2s infinite}
-#arale .eye{animation-duration:3.4s}
-.char .m-open{display:none;transform-box:fill-box;transform-origin:center top}
-.char.talking .m-open{display:inline;animation:talk .26s ease-in-out infinite}
-.char.talking .m-closed{display:none}
-.char .arm{transform-box:view-box;transform-origin:170px 200px}
-.char.talking .arm{animation:wave 1s ease-in-out infinite}
+/* ---------- 角色（依講師／助教角色設定圖裁切的半身像） ---------- */
+.char{position:absolute;bottom:0;height:250px;z-index:6}
+#allan{left:4px;width:234px}
+#arale{right:6px;width:225px}
+.char .body-bob{position:absolute;inset:0;transform-origin:50% 100%;animation:bob 2.8s ease-in-out infinite}
+#arale .body-bob{animation-duration:2s}
+.char img{position:absolute;left:0;bottom:0;width:100%;height:100%;display:block;user-select:none;-webkit-user-drag:none}
+.char .open{opacity:0}
+.char.talking .open{animation:flap .32s steps(1,end) infinite}
+#allan.talking .body-bob{animation:nod 1.6s ease-in-out infinite}
 #arale.talking .body-bob{animation:hop .62s ease-in-out infinite}
-.char .spot{position:absolute;left:30px;right:30px;bottom:-30px;height:70px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,198,61,.75),rgba(255,198,61,0));opacity:0}
+.char .spot{position:absolute;left:20px;right:20px;bottom:-34px;height:70px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,198,61,.75),rgba(255,198,61,0));opacity:0}
 .char.talking .spot{animation:glow 1.2s ease-in-out infinite}
 .char.enter{animation:dashin .9s cubic-bezier(.2,.8,.25,1) both}
 .char *{animation-play-state:paused!important}
 .char.enter{animation-play-state:paused!important}
+@keyframes flap{0%{opacity:1}50%{opacity:0}}
+@keyframes nod{0%,100%{transform:rotate(0) translateY(0)}30%{transform:rotate(-1.6deg) translateY(-3px)}70%{transform:rotate(1.2deg) translateY(-1px)}}
 
 /* ---------- 字幕 ---------- */
-.sub{position:absolute;left:206px;right:206px;bottom:20px;z-index:7;display:flex;justify-content:center}
+.sub{position:absolute;left:244px;right:236px;bottom:20px;z-index:7;display:flex;justify-content:center}
 .sub-box{background:rgba(10,40,31,.92);color:#fff;border-radius:16px;padding:12px 20px 14px;display:flex;gap:12px;align-items:flex-start;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:100%}
 .sub-box[hidden]{display:none!important}
 .sub-who{flex:none;font-family:var(--font-display);font-size:17px;padding:3px 10px;border-radius:999px;margin-top:3px;white-space:nowrap}
@@ -285,6 +283,7 @@ body.nocc .sub{display:none}
 
 <script>
 /*__DECK__*/
+/*__SPRITES__*/
 </script>
 <script>
 (function(){
@@ -320,55 +319,10 @@ const PIC = {
 };
 
 /* ---------------- 角色 ---------------- */
-const ALLAN = `<svg viewBox="0 0 230 272" aria-label="Q版 Allan Lo 講師">
-<g class="body-bob">
- <path d="M50 272c0-58 26-86 65-86s65 28 65 86z" fill="#1F3A5F"/>
- <path d="M97 188l18 40 18-40z" fill="#fff"/>
- <path d="M111 194h8l5 42-9 12-9-12z" fill="#0E9A68"/>
- <path d="M97 188l12 42-24-22zM133 188l-12 42 24-22z" fill="#16304F"/>
- <rect x="132" y="226" width="44" height="20" rx="4" fill="#fff"/><text x="154" y="240" text-anchor="middle" font-size="10.5" font-weight="900" fill="#12332A" font-family="sans-serif">Allan Lo</text>
- <g class="arm"><path d="M170 214q26-16 32-46" stroke="#1F3A5F" stroke-width="20" stroke-linecap="round" fill="none"/><path d="M203 166 222 92" stroke="#7A4B2A" stroke-width="5" stroke-linecap="round"/><circle cx="222" cy="90" r="6" fill="#DD4B32"/><circle cx="202" cy="166" r="11" fill="#FFD9BC"/></g>
- <path d="M60 214q-14 22-4 44" stroke="#1F3A5F" stroke-width="20" stroke-linecap="round" fill="none"/>
- <rect x="104" y="164" width="22" height="26" fill="#F2C4A2"/>
- <circle cx="44" cy="104" r="13" fill="#FFD9BC"/><circle cx="186" cy="104" r="13" fill="#FFD9BC"/>
- <ellipse cx="115" cy="98" rx="72" ry="68" fill="#FFDCC0"/>
- <path d="M42 102C34 40 82 16 120 18c42 2 72 26 68 84-6-26-26-44-58-46-22 12-56 8-72 22-8 8-12 16-16 24z" fill="#1E1E24"/>
- <path d="M120 22c-18 2-34 14-40 34 16-12 30-16 44-14z" fill="#33333C"/>
- <path d="M76 74q12-6 24-2M130 72q12-4 24 2" stroke="#1E1E24" stroke-width="6" stroke-linecap="round" fill="none"/>
- <rect x="70" y="82" width="40" height="30" rx="9" fill="#fff" fill-opacity=".35" stroke="#1E1E24" stroke-width="4.5"/>
- <rect x="120" y="82" width="40" height="30" rx="9" fill="#fff" fill-opacity=".35" stroke="#1E1E24" stroke-width="4.5"/>
- <path d="M110 94h10" stroke="#1E1E24" stroke-width="4.5"/>
- <g class="eye"><ellipse cx="90" cy="97" rx="5.5" ry="7" fill="#1E1E24"/><circle cx="92" cy="94" r="2" fill="#fff"/></g>
- <g class="eye"><ellipse cx="140" cy="97" rx="5.5" ry="7" fill="#1E1E24"/><circle cx="142" cy="94" r="2" fill="#fff"/></g>
- <ellipse cx="74" cy="124" rx="10" ry="6" fill="#FF8F8F" opacity=".45"/><ellipse cx="156" cy="124" rx="10" ry="6" fill="#FF8F8F" opacity=".45"/>
- <path class="m-closed" d="M101 130q14 13 28 0" stroke="#7A3B2E" stroke-width="4" stroke-linecap="round" fill="none"/>
- <g class="m-open"><path d="M100 128q15 0 30 0q-2 16-15 16t-15-16z" fill="#7A2E2E"/><path d="M106 138q9-5 18 0q-4 6-9 6t-9-6z" fill="#FF8C8C"/></g>
-</g></svg>`;
-const ARALE = `<svg viewBox="0 0 230 272" aria-label="助教阿拉蕾">
-<g class="body-bob">
- <path d="M66 272c0-52 20-80 49-80s49 28 49 80z" fill="#3E73DB"/>
- <path d="M96 194l19 18 19-18z" fill="#fff"/>
- <rect x="94" y="222" width="42" height="18" rx="4" fill="#fff"/><text x="115" y="235" text-anchor="middle" font-size="11" font-weight="900" fill="#8B5BD6" font-family="sans-serif">助教</text>
- <g class="arm"><path d="M156 212q30-6 52-30" stroke="#3E73DB" stroke-width="17" stroke-linecap="round" fill="none"/><circle cx="210" cy="180" r="10" fill="#FFE0C6"/></g>
- <path d="M74 212q-30-6-52-30" stroke="#3E73DB" stroke-width="17" stroke-linecap="round" fill="none"/><circle cx="20" cy="180" r="10" fill="#FFE0C6"/>
- <ellipse cx="115" cy="112" rx="80" ry="74" fill="#5B3A9E"/>
- <ellipse cx="115" cy="112" rx="64" ry="62" fill="#FFE0C6"/>
- <path d="M50 96c4-30 28-48 65-48s62 18 66 48l-12-6-8 12-10-12-10 12-12-12-12 12-12-12-12 12-10-12-10 12-8-12z" fill="#5B3A9E"/>
- <path d="M50 92c-2-34 26-62 65-62s68 28 65 62c-20-10-42-14-65-14s-45 4-65 14z" fill="#E23B3B"/>
- <path d="M48 92q67-24 134 0" stroke="#B82020" stroke-width="7" fill="none" stroke-linecap="round"/>
- <path d="M54 58c-16-10-30-8-40-2 10 2 16 6 20 12-8-2-14 0-18 4 12 0 22 2 32 6z" fill="#fff" stroke="#9AA" stroke-width="2"/>
- <path d="M176 58c16-10 30-8 40-2-10 2-16 6-20 12 8-2 14 0 18 4-12 0-22 2-32 6z" fill="#fff" stroke="#9AA" stroke-width="2"/>
- <circle cx="88" cy="118" r="24" fill="#fff" fill-opacity=".4" stroke="#1E1E24" stroke-width="5"/>
- <circle cx="142" cy="118" r="24" fill="#fff" fill-opacity=".4" stroke="#1E1E24" stroke-width="5"/>
- <path d="M112 116h6" stroke="#1E1E24" stroke-width="5"/>
- <g class="eye"><ellipse cx="88" cy="119" rx="7" ry="10" fill="#1E1E24"/><circle cx="91" cy="114" r="3" fill="#fff"/></g>
- <g class="eye"><ellipse cx="142" cy="119" rx="7" ry="10" fill="#1E1E24"/><circle cx="145" cy="114" r="3" fill="#fff"/></g>
- <ellipse cx="66" cy="146" rx="10" ry="6" fill="#FF7FA0" opacity=".55"/><ellipse cx="164" cy="146" rx="10" ry="6" fill="#FF7FA0" opacity=".55"/>
- <path class="m-closed" d="M100 150q15 14 30 0z" fill="#C2364A" stroke="#7A1F2E" stroke-width="2" stroke-linejoin="round"/>
- <g class="m-open"><path d="M98 148h34q-2 22-17 22t-17-22z" fill="#9E2236"/><path d="M106 162q9-6 18 0q-4 8-9 8t-9-8z" fill="#FF8CA4"/></g>
-</g></svg>`;
-$("allan").insertAdjacentHTML("beforeend", ALLAN);
-$("arale").insertAdjacentHTML("beforeend", ARALE);
+const SP = window.SPRITES || {};
+const charHTML = (k, label) => `<div class="body-bob"><img class="closed" src="${SP[k]}" alt="${label}"><img class="open" src="${SP[k+"_open"]}" alt=""></div>`;
+$("allan").insertAdjacentHTML("beforeend", charHTML("allan", "Allan Lo 講師"));
+$("arale").insertAdjacentHTML("beforeend", charHTML("arale", "助教阿拉蕾"));
 
 /* ---------------- 各場景繪製 ---------------- */
 function bullets(list, ref){

@@ -15,7 +15,9 @@
 | `video/ISO27001_應用程式安全_動畫課程.mp4` | 1080p 成品影片（含旁白，可直接上課播放） |
 | `index.html`（根目錄入口）／`presentation/index.html` + `narration.mp3` | 互動版動畫簡報：可暫停、跳段、調速、開關字幕、全螢幕 |
 | `src/content.py` | 腳本與教材內容（改這裡即可改台詞與投影片文字） |
-| `src/player.html` | 簡報播放器樣板（角色、動畫、版面） |
+| `src/player.html` | 簡報播放器樣板（動畫、版面） |
+| `assets/characters/` | 講師 Allan Lo 與助教阿拉蕾的角色設定圖（原始素材） |
+| `src/make_sprites.py` | 從角色設定圖裁切半身像、去背，並產生說話用的張嘴／閉嘴兩格 |
 | `src/build.py` | 產生語音（edge-tts：`zh-TW-YunJheNeural` 男聲／`zh-TW-HsiaoYuNeural` 助教）與時間軸 |
 | `video/render.mjs` | 以 Playwright 逐格渲染成 MP4 |
 
@@ -23,7 +25,8 @@
 
 ```bash
 pip install edge-tts
-python3 src/build.py                 # 產生語音、時間軸與 HTML
+python3 src/make_sprites.py          # 由角色設定圖產生角色圖（需 Pillow、numpy）
+python3 src/build.py                 # 產生語音、時間軸與 HTML（角色圖內嵌為 WebP）
 node video/render.mjs 24 4           # 24fps、4 個平行程序輸出 MP4（需 playwright + ffmpeg）
 ```
 
@@ -313,4 +316,4 @@ node video/render.mjs 24 4           # 24fps、4 個平行程序輸出 MP4（需
 
 ---
 
-註：助教「阿拉蕾」造型為致敬性質的 Q 版繪製；原角色著作權屬原作者與出版社，若用於商業課程或公開發行，建議改為自有吉祥物或取得授權。
+註：講師與助教的造型取自 `assets/characters/` 的角色設定圖。若要換姿勢，修改 `src/make_sprites.py` 的裁切框後重新執行即可。

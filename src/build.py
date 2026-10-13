@@ -83,6 +83,21 @@ def read_pcm(path):
         return w.readframes(w.getnframes())
 
 
+def sprites_js():
+    """把角色圖（presentation/sprites/*.png）轉成 WebP data URI 內嵌，單一 HTML 即可播放。"""
+    import base64
+    import io
+    from PIL import Image
+    d = os.path.join(OUT, "sprites")
+    out = {}
+    for fn in sorted(os.listdir(d)):
+        if fn.endswith(".png"):
+            buf = io.BytesIO()
+            Image.open(os.path.join(d, fn)).save(buf, "WEBP", quality=88, method=6)
+            out[fn[:-4]] = "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
+    return "window.SPRITES = " + json.dumps(out) + ";"
+
+
 def build():
     asyncio.run(synth_all())
     pcm = bytearray()
@@ -127,7 +142,7 @@ def build():
     data = dict(title=TITLE, duration=round(t, 3), scenes=deck)
     js = "window.DECK = " + json.dumps(data, ensure_ascii=False) + ";"
     with open(os.path.join(ROOT, "src", "player.html"), encoding="utf-8") as f:
-        player = f.read().replace("/*__DECK__*/", js)
+        player = f.read().replace("/*__DECK__*/", js).replace("/*__SPRITES__*/", sprites_js())
     # Artifact 版（無 doctype 外框）
     with open(os.path.join(OUT, "artifact.html"), "w", encoding="utf-8") as f:
         f.write(player)
